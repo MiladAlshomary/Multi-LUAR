@@ -20,36 +20,36 @@ class Similarity():
         logging.info("Computing cosine similarities")
         print(len(self.query_features))
         print(len(self.query_features[0]))
-        self.psimilarities = cosine_similarity(
-            self.query_features, self.candidate_features)
-        #     # Reshape and concatenate query embeddings
-        # q_list = torch.cat(
-        #     [e.permute(1, 0, 2) for e in self.query_features], dim=0
-        # )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
-        # q_list = q_list.cpu().numpy()  # Convert to numpy
+        # self.psimilarities = cosine_similarity(
+        #     self.query_features, self.candidate_features)
 
-        # # Reshape and concatenate target embeddings
-        # t_list = torch.cat(
-        #     [e.permute(1, 0, 2) for e in self.candidate_features], dim=0
-        # )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
-        # t_list = t_list.cpu().numpy()  # Convert to numpy
+        q_list = torch.cat(
+            [e.permute(1, 0, 2) for e in self.query_features], dim=0
+        )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
+        q_list = q_list.cpu().numpy()  # Convert to numpy
 
-        # num_queries, num_layers, _ = q_list.shape
-        # num_targets, _, _ = t_list.shape
+        # Reshape and concatenate target embeddings
+        t_list = torch.cat(
+            [e.permute(1, 0, 2) for e in self.candidate_features], dim=0
+        )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
+        t_list = t_list.cpu().numpy()  # Convert to numpy
 
-        # # Initialize a similarity matrix to hold the sum of cosine similarities for each query-target pair
-        # self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
+        num_queries, num_layers, _ = q_list.shape
+        num_targets, _, _ = t_list.shape
 
-        # for layer in range(num_layers):
-        #     # Compute cosine similarity for the current layer
-        #     layer_similarities = pairwise_distances(q_list[:, layer, :], Y=t_list[:, layer, :], metric='cosine')
-        #     # Add the cosine similarities of this layer to the overall similarity matrix
-        #     self.psimilarities += layer_similarities
-        # avg_queries = np.mean(q_list, axis=1)  # Shape: (num_queries, embedding_dim)
-        # avg_targets = np.mean(t_list, axis=1)  # Shape: (num_targets, embedding_dim)
+        # Initialize a similarity matrix to hold the sum of cosine similarities for each query-target pair
+        self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
 
-        # # Compute pairwise distances using the averaged embeddings
-        # self.psimilarities = cosine_similarity(avg_queries, Y=avg_targets)
+        for layer in range(num_layers):
+            # Compute cosine similarity for the current layer
+            layer_similarities = pairwise_distances(q_list[:, layer, :], Y=t_list[:, layer, :], metric='cosine')
+            # Add the cosine similarities of this layer to the overall similarity matrix
+            self.psimilarities += layer_similarities
+        avg_queries = np.mean(q_list, axis=1)  # Shape: (num_queries, embedding_dim)
+        avg_targets = np.mean(t_list, axis=1)  # Shape: (num_targets, embedding_dim)
+
+        # Compute pairwise distances using the averaged embeddings
+        self.psimilarities = cosine_similarity(avg_queries, Y=avg_targets)
         print(len(self.psimilarities))
         print(len(self.psimilarities[0]))
 

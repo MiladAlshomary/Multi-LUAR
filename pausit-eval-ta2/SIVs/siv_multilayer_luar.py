@@ -10,8 +10,8 @@ import torch
 from src.models.transformer import Transformer
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
 
-CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
-
+#CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
+CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
 class SIV_Multilayer_Luar(SIV):
     def __init__(self, input_dir, query_identifier, candidate_identifier, params, language="en"):
         super().__init__(input_dir, query_identifier, candidate_identifier, language)
@@ -19,7 +19,7 @@ class SIV_Multilayer_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-        self.token_max_length = self.params.token_max_length
+        self.token_max_length = 512 #self.params.token_max_length
         self.document_batch_size = 32
 
     def set_batch_size(self, batch_size):

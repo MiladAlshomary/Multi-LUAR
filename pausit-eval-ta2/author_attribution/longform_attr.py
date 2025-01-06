@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, TFLongformerModel
+#from transformers import AutoTokenizer, TFLongformerModel
 import sys
 import pandas as pd
 from sklearn import preprocessing
@@ -8,7 +8,7 @@ from typing import Tuple
 import os
 import numpy as np
 from statistics import mode
-import tensorflow as tf
+#import tensorflow as tf
 
 
 def get_file_names(input_dir:str) -> Tuple[str, str]:
