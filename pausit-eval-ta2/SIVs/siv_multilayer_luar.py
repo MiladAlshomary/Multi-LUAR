@@ -8,6 +8,8 @@ import pandas as pd
 import torch
 
 from src.models.transformer import Transformer
+from src.models.model import LUAR
+
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
 
 #CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
@@ -49,7 +51,7 @@ class SIV_Multilayer_Luar(SIV):
         print("Loading MultiLayer LUAR")
         
         # Initialize Transformer model
-        self.model = Transformer(args)
+        self.model = LUAR(args)
 
         # Load the checkpoint
         checkpoint = torch.load(CKPT_PATH, map_location=torch.device("cpu"))
@@ -80,28 +82,28 @@ class SIV_Multilayer_Luar(SIV):
         all_identifiers, all_outputs = [], []
 
         for i in range(0, len(data), batch_size):
-            chunk = data.iloc[i : i + batch_size]
+            chunk = data.iloc[i:i+batch_size]
             text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
-            # print(len(chunk))
+
             num_samples_per_author = text[0][0].shape[0]
 
             input_ids = torch.cat([elem[0] for elem in text], dim=0)
             attention_mask = torch.cat([elem[1] for elem in text], dim=0)
-            
+
             if torch.cuda.is_available():
                 input_ids = input_ids.to("cuda")
                 attention_mask = attention_mask.to("cuda")
-
+            
             with torch.no_grad():
-                input_ids = input_ids.unsqueeze(1)
-                attention_mask = attention_mask.unsqueeze(1)
-                input_ids = input_ids.reshape((-1, 1, num_samples_per_author, self.token_max_length))
-                attention_mask = attention_mask.reshape((-1, 1, num_samples_per_author, self.token_max_length))
-                # print(input_ids.shape)
-                output, _ = self.model.get_episode_embeddings((input_ids, attention_mask))
-
+                input_ids = input_ids.unsqueeze(1).unsqueeze(1)
+                attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
+                input_ids = input_ids.reshape((-1, num_samples_per_author, self.token_max_length))
+                attention_mask = attention_mask.reshape((-1, num_samples_per_author, self.token_max_length))
+                print(input_ids.shape)
+                output = model.get_episode_embeddings(input_ids, attention_mask, document_batch_size=self.document_batch_size)
+        
             all_identifiers.extend(chunk[identifier])
-            all_outputs.append(output.cpu().numpy().tolist())
+            all_outputs.extend(output.cpu().numpy().tolist())
 
         dataset = Dataset.from_dict({
             identifier: all_identifiers,
