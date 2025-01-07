@@ -46,11 +46,9 @@ class Similarity():
 
         for layer in range(num_layers):
             # Compute cosine similarity for the current layer
-            layer_similarities = pairwise_distances(q_list[:, layer, :], Y=t_list[:, layer, :], metric='cosine')
+            layer_similarities = cosine_similarity(q_list[:, layer, :], Y=t_list[:, layer, :])
             # Add the cosine similarities of this layer to the overall similarity matrix
             self.psimilarities += layer_similarities
-        avg_queries = np.mean(q_list, axis=1)  # Shape: (num_queries, embedding_dim)
-        avg_targets = np.mean(t_list, axis=1)  # Shape: (num_targets, embedding_dim)
 
         # Compute pairwise distances using the averaged embeddings
         self.psimilarities = cosine_similarity(avg_queries, Y=avg_targets)

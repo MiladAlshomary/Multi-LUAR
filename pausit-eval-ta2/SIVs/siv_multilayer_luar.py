@@ -11,7 +11,8 @@ from src.models.transformer import Transformer
 from src.models.model import LUAR
 
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
-
+from tqdm import tqdm
+    
 #CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
 CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
 class SIV_Multilayer_Luar(SIV):
@@ -81,7 +82,7 @@ class SIV_Multilayer_Luar(SIV):
 
         all_identifiers, all_outputs = [], []
 
-        for i in range(0, len(data), batch_size):
+        for i in tqdm(range(0, len(data), batch_size)):
             chunk = data.iloc[i:i+batch_size]
             text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
