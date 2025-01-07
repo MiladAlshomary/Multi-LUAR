@@ -44,7 +44,7 @@ class MultLuarSimilarity():
             self.psimilarities += layer_similarities
 
         # Compute pairwise distances using the averaged embeddings
-        self.psimilarities = self.psimilarities/len(num_layers)
+        self.psimilarities = self.psimilarities/num_layers
 
 
     def save_ta2_output(self, output_dir, run_id, ta1_approach):

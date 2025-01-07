@@ -87,9 +87,7 @@ class SIV_Baseline_Luar(SIV):
                 attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
                 input_ids = input_ids.reshape((-1, num_samples_per_author, self.token_max_length))
                 attention_mask = attention_mask.reshape((-1, num_samples_per_author, self.token_max_length))
-                print(input_ids.shape)
                 output = model(input_ids, attention_mask, document_batch_size=self.document_batch_size)
-            print(output.shape)
             all_identifiers.extend(chunk[identifier])
             all_outputs.extend(output.cpu().numpy().tolist())
 
