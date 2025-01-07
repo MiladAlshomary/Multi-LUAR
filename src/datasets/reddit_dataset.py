@@ -7,7 +7,6 @@ import argparse
 import os
 
 import torch
-import time
 from src.datasets.retrieval_dataset import RetrievalDataset
 from src.utilities.file_utils import Utils as utils
 

@@ -68,8 +68,8 @@ class SIV_Baseline_Luar(SIV):
             identifier = "documentID"
 
         all_identifiers, all_outputs = [], []
-
-        for i in range(0, len(data), batch_size):
+        length=len(data) if len(data) < 100 else 100
+        for i in range(0, length, batch_size):
             chunk = data.iloc[i:i+batch_size]
             text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
@@ -92,6 +92,8 @@ class SIV_Baseline_Luar(SIV):
             all_identifiers.extend(chunk[identifier])
             all_outputs.extend(output.cpu().numpy().tolist())
 
+            print(chunk[identifier])
+        print(all_identifiers)
         dataset = Dataset.from_dict({
             identifier: all_identifiers,
             "features": all_outputs,
@@ -100,7 +102,6 @@ class SIV_Baseline_Luar(SIV):
         return dataset
 
     def generate_sivs(self, input_dir, output_dir, run_id, ta1_approach):
-        print(get_file_paths(input_dir))
         queries_fname, candidates_fname = get_file_paths(input_dir)
         logging.info("Extracting Query Embeddings")
         queries = self.extract_embeddings(self.model, self.tokenizer, queries_fname)

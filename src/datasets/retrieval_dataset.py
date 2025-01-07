@@ -116,7 +116,7 @@ class RetrievalDataset(Dataset):
             episode["author_id"] = index
         else:            
             episode["author_id"] = author_data["author_id"] 
-            
+
         return episode
     
     def sample_random_window(self, data, window_length=32):

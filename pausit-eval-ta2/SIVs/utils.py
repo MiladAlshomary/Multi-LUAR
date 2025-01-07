@@ -36,7 +36,6 @@ def load_model(model_path, luar=False, load_from_artifacts=False, artifacts_dir=
             model.load_state_dict(torch.load(glob(os.path.join(artifacts_dir, "*SBERT*"))[0]))
             model.eval()
 
-
     return model
 
 def load_tokenizer(language="en", model_path=None):
@@ -89,6 +88,7 @@ def get_features(input_dir, ta1_approach, query_identifier, candidate_identifier
     query_labels = dataset["queries"][query_identifier]
     candidate_features = dataset["candidates"]["features"]
     candidate_labels = dataset["candidates"][candidate_identifier]
+
     return query_features, candidate_features, query_labels, candidate_labels
 
 def get_dataset_path(input_path, ta1_approach):

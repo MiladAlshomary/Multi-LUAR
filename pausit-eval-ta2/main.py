@@ -98,7 +98,10 @@ def main(args):
 
         if args.ta2_approach == 'baseline':
             sim = Similarity(query_features, candidate_features, query_labels, candidate_labels, args.input_dir)
-            sim.compute_similarities()
+            if args.ta1_approach == 'multilayer_luar':
+                sim.compute_multilayer_similarities()
+            else:
+                sim.compute_similarities()
             sim.save_ta2_output(output_dir, args.run_id, args.ta1_approach)
             te_results = run_te_eval(args.run_id, args.ground_truth_dir, args.input_dir, output_dir)
             print(te_results)

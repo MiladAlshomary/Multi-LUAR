@@ -146,9 +146,11 @@ class Experiment(ExperimentBase):
     def load_dataset(score_path, candidate_labels_path, query_labels_path):
         """Load a TA2 dataset from disk."""
         scores = np.load(score_path)
+
         candidate_labels = [
             literal_eval(label) for label in Path(candidate_labels_path).read_text().split("\n") if label
         ]
+
         query_labels = [literal_eval(label) for label in Path(query_labels_path).read_text().split("\n") if label]
         dataset = pd.DataFrame(scores, index=query_labels, columns=candidate_labels)
         return dataset

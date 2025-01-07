@@ -18,33 +18,39 @@ class Similarity():
 
     def compute_similarities(self):
         logging.info("Computing cosine similarities")
-        print(len(self.query_features))
-        print(len(self.query_features[0]))
+
         self.psimilarities = cosine_similarity(
             self.query_features, self.candidate_features)
-        #     # Reshape and concatenate query embeddings
-        # q_list = torch.cat(
-        #     [e.permute(1, 0, 2) for e in self.query_features], dim=0
-        # )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
-        # q_list = q_list.cpu().numpy()  # Convert to numpy
+        
+    def compute_multilayer_similarities(self):
+        logging.info("Computing cosine similarities")
+        print(len(self.query_features))
+        print(len(self.query_features[0]))
+        # self.psimilarities = cosine_similarity(
+        #     self.query_features, self.candidate_features)
+            # Reshape and concatenate query embeddings
+        q_list = torch.cat(
+            [e.permute(1, 0, 2) for e in self.query_features], dim=0
+        )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
+        q_list = q_list.cpu().numpy()  # Convert to numpy
 
-        # # Reshape and concatenate target embeddings
-        # t_list = torch.cat(
-        #     [e.permute(1, 0, 2) for e in self.candidate_features], dim=0
-        # )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
-        # t_list = t_list.cpu().numpy()  # Convert to numpy
+        # Reshape and concatenate target embeddings
+        t_list = torch.cat(
+            [e.permute(1, 0, 2) for e in self.candidate_features], dim=0
+        )  # Permute to (batch_size, num_layers, embedding_size) and concatenate
+        t_list = t_list.cpu().numpy()  # Convert to numpy
 
-        # num_queries, num_layers, _ = q_list.shape
-        # num_targets, _, _ = t_list.shape
+        num_queries, num_layers, _ = q_list.shape
+        num_targets, _, _ = t_list.shape
 
-        # # Initialize a similarity matrix to hold the sum of cosine similarities for each query-target pair
-        # self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
+        # Initialize a similarity matrix to hold the sum of cosine similarities for each query-target pair
+        self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
 
-        # for layer in range(num_layers):
-        #     # Compute cosine similarity for the current layer
-        #     layer_similarities = pairwise_distances(q_list[:, layer, :], Y=t_list[:, layer, :], metric='cosine')
-        #     # Add the cosine similarities of this layer to the overall similarity matrix
-        #     self.psimilarities += layer_similarities
+        for layer in range(num_layers):
+            # Compute cosine similarity for the current layer
+            layer_similarities = cosine_similarity(q_list[:, layer, :], Y=t_list[:, layer, :])
+            # Add the cosine similarities of this layer to the overall similarity matrix
+            self.psimilarities += layer_similarities
         # avg_queries = np.mean(q_list, axis=1)  # Shape: (num_queries, embedding_dim)
         # avg_targets = np.mean(t_list, axis=1)  # Shape: (num_targets, embedding_dim)
 
@@ -92,7 +98,7 @@ class Similarity():
                 f"_TA2_query_candidate_attribution_candidate_labels_{run_id}.txt"
             ), "w+"
         )
-
+        print(tuple_str)
         if not tuple_str:
             for label in self.candidate_labels:
                 fout.write("('"+str(label)+"',)")
