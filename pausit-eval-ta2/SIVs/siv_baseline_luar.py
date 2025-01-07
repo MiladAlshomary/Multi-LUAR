@@ -17,7 +17,7 @@ class SIV_Baseline_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-        self.token_max_length = 32
+        self.token_max_length = 512
         self.document_batch_size = 32
 
     def set_batch_size(self, batch_size):
@@ -87,8 +87,9 @@ class SIV_Baseline_Luar(SIV):
                 attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
                 input_ids = input_ids.reshape((-1, num_samples_per_author, self.token_max_length))
                 attention_mask = attention_mask.reshape((-1, num_samples_per_author, self.token_max_length))
+                print(input_ids.shape)
                 output = model(input_ids, attention_mask, document_batch_size=self.document_batch_size)
-        
+            print(output.shape)
             all_identifiers.extend(chunk[identifier])
             all_outputs.extend(output.cpu().numpy().tolist())
 

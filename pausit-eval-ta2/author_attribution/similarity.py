@@ -37,6 +37,10 @@ class Similarity():
         num_queries, num_layers, _ = q_list.shape
         num_targets, _, _ = t_list.shape
 
+        print('=====')
+        print(q_list.shape)
+        print(t_list.shape)
+        
         # Initialize a similarity matrix to hold the sum of cosine similarities for each query-target pair
         self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
 
@@ -50,8 +54,7 @@ class Similarity():
 
         # Compute pairwise distances using the averaged embeddings
         self.psimilarities = cosine_similarity(avg_queries, Y=avg_targets)
-        print(len(self.psimilarities))
-        print(len(self.psimilarities[0]))
+
 
     def save_ta2_output(self, output_dir, run_id, ta1_approach):
         logging.info("Saving similarities and labels")
