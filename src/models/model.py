@@ -46,7 +46,6 @@ class LUAR(LightningTrainer):
 
         model_path = os.path.join(utils.transformer_path, modelname)
         self.transformer = AutoModel.from_pretrained(modelname)
-
         self.hidden_size = self.transformer.config.hidden_size
         self.num_attention_heads = self.transformer.config.num_attention_heads
         self.dim_head = self.hidden_size // self.num_attention_heads
@@ -94,10 +93,11 @@ class LUAR(LightningTrainer):
 
         input_ids = rearrange(input_ids, 'b e l -> (b e) l')
         attention_mask = rearrange(attention_mask, 'b e l -> (b e) l')
-
+        #print(input_ids.shape)
         if document_batch_size > 0:
             outputs = {"last_hidden_state": [], "attentions": [], "hidden_states":[]}
             for i in range(0, len(input_ids), document_batch_size):
+                #print(input_ids[i:i+document_batch_size].shape)
                 out = self.transformer(
                     input_ids=input_ids[i:i+document_batch_size],
                     attention_mask=attention_mask[i:i+document_batch_size],
@@ -105,6 +105,7 @@ class LUAR(LightningTrainer):
                     output_hidden_states=True,
                     output_attentions=output_attentions,
                 )
+                #print(out["hidden_states"][0].shape)
                 outputs["last_hidden_state"].append(out["last_hidden_state"])
                 outputs["hidden_states"].append(out["hidden_states"])
                 if output_attentions:

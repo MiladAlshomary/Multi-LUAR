@@ -38,13 +38,17 @@ class MultLuarSimilarity():
         self.psimilarities = np.zeros((num_queries, num_targets), dtype=np.float32)
 
         for layer in range(num_layers):
-            # Compute cosine similarity for the current layer
             layer_similarities = cosine_similarity(q_list[:, layer, :], Y=t_list[:, layer, :])
-            # Add the cosine similarities of this layer to the overall similarity matrix
             self.psimilarities += layer_similarities
 
         # Compute pairwise distances using the averaged embeddings
         self.psimilarities = self.psimilarities/num_layers
+
+        # avg_queries = np.mean(q_list, axis=1)  # Shape: (num_queries, embedding_dim)
+        # avg_targets = np.mean(t_list, axis=1)  # Shape: (num_targets, embedding_dim)
+        # # # Compute pairwise distances using the averaged embeddings
+        # self.psimilarities = cosine_similarity(avg_queries, Y=avg_targets)
+
 
 
     def save_ta2_output(self, output_dir, run_id, ta1_approach):

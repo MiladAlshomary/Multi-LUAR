@@ -44,7 +44,6 @@ def summarize_qkv_chunk(
     """Dot-Product Attention for a chunk of queries, keys, and values.
     """
     weight = torch.einsum('b h i d, b h j d -> b h i j', q, k)
-
     if exists(mask):
         # HuggingFace masks have to be added:
         weight += mask

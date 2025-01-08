@@ -30,7 +30,8 @@ def main(params):
     torch.multiprocessing.set_sharing_strategy('file_system')
         
     # create experiment_dir and load model
-    experiment_dir = os.path.join(utils.output_path, params.experiment_id)
+    #experiment_dir = os.path.join(utils.output_path, params.experiment_id)
+    experiment_dir = os.path.join('/mnt/swordfish-pool2/nikhil/LUAR/src/output', params.experiment_id)
     experiment_dir = utils.path_exists(experiment_dir, True)
     model = Transformer(params)
     
@@ -56,6 +57,7 @@ def main(params):
         # get the latest checkpoint
         version = "version_0" if params.version is None else params.version
         path = os.path.join(experiment_dir, params.log_dirname, version, 'checkpoints', '*.ckpt')
+        print(path)
         resume_from_checkpoint = glob.glob(path)[-1]
         print("Checkpoint: {}".format(resume_from_checkpoint))
 
@@ -85,6 +87,7 @@ def main(params):
 
     if params.evaluate:
         trainer.test(model)
+        trainer.save_model('./multi_luar_' + params.experiment_id)
 
 if __name__ == "__main__":
     parser = create_argument_parser()

@@ -23,7 +23,7 @@ class SIV_Multilayer_Luar(SIV):
         self.author_level = True
         self.text_key = "fullText"
         self.token_max_length = 512 #self.params.token_max_length
-        self.document_batch_size = 32
+        self.document_batch_size = 0
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -57,7 +57,7 @@ class SIV_Multilayer_Luar(SIV):
         # Load the checkpoint
         checkpoint = torch.load(CKPT_PATH, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint["state_dict"], strict=False)
-
+        
         if torch.cuda.is_available():
             print("Using CUDA")
             self.model.cuda()
@@ -84,6 +84,12 @@ class SIV_Multilayer_Luar(SIV):
 
         for i in tqdm(range(0, len(data), batch_size)):
             chunk = data.iloc[i:i+batch_size]
+            
+            # author_txts = "\n".join(chunk[self.text_key].tolist()[0]).split(" ")
+            # author_txts = [" ".join(author_txts[i:i+self.token_max_length]) for i in range(0, len(author_txts), self.token_max_length)]
+            # # print(chunk[0:2])
+            # text = [tokenize(author_txts, tokenizer, self.token_max_length)]
+            
             text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
             num_samples_per_author = text[0][0].shape[0]
