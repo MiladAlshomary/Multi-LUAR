@@ -11,7 +11,7 @@ from SIVs.utils import dump_ta2_output, get_features, get_file_paths, get_datase
 from author_attribution.similarity import Similarity
 from author_attribution.longform_attr import apply_srs
 from SIVs.siv_baseline_sbert import SIV_Baseline_SBert
-from SIVs.siv_baseline_luar import SIV_Baseline_Luar
+from SIVs.siv_baseline_luar_cpy import SIV_Baseline_Luar
 from SIVs.siv_multilayer_luar import SIV_Multilayer_Luar
 from SIVs.siv_datadreamer_lora import SIV_DataDreamer_LoRA
 from SIVs.siv_st import SIV_ST

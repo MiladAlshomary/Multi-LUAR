@@ -5,20 +5,21 @@ import os
 from datasets import DatasetDict, Dataset
 from absl import logging
 import pandas as pd
-import numpy as np
 import torch
 
-from SIVs.utils_cpy import get_file_paths, load_model, load_tokenizer, tokenize, save_files
+from nltk.tokenize import sent_tokenize
+
+from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
 
 
 class SIV_Baseline_Luar(SIV):
 
-    def __init__(self, input_dir, query_identifier, candidate_identifier):
-        super().__init__(input_dir, query_identifier, candidate_identifier)
+    def __init__(self, input_dir, query_identifier, candidate_identifier, language="en"):
+        super().__init__(input_dir, query_identifier, candidate_identifier, language)
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-        self.token_max_length = 512
+        self.token_max_length = 32
         self.document_batch_size = 32
 
     def set_batch_size(self, batch_size):
@@ -46,18 +47,49 @@ class SIV_Baseline_Luar(SIV):
 
     def load_model(self):
         logging.info("Loading LUAR")
-
-        self.model = load_model(os.path.join(os.getcwd()), luar=True)
-        self.tokenizer = load_tokenizer()
+        self.model = load_model(os.path.join(os.getcwd()), luar=True, language=self.language)
+        self.tokenizer = load_tokenizer(self.language, os.path.join(os.getcwd()))
 
         if torch.cuda.is_available():
             logging.info("Using CUDA")
             self.model.half().cuda()
 
-    def extract_embeddings(self, model, tokenizer, data, identifier):
+    def split_text_to_samples(self, text, min_tokens=32):
+        """
+        Splits a single text into samples with at least `min_tokens` tokens, keeping sentences intact.
+        """
+        if isinstance(text, list):
+            # Concatenate list of strings into a single string
+            text = " ".join(text)
+
+        sentences = sent_tokenize(text)  # Split into sentences
+        samples = []
+        current_sample = []
+        current_token_count = 0
+
+        for sentence in sentences:
+            # Add sentence to the current sample
+            current_sample.append(sentence)
+            current_token_count += len(sentence.split())  # Rough word count as a proxy for tokens
+
+            # If token count exceeds min_tokens, finalize the sample
+            if current_token_count >= min_tokens:
+                samples.append(" ".join(current_sample))
+                current_sample = []
+                current_token_count = 0
+
+        # Add remaining sentences as a final sample
+        if current_sample:
+            samples.append(" ".join(current_sample))
+
+        return samples
+
+    def extract_embeddings(self, model, tokenizer, data_fname):
+        data = pd.read_json(data_fname, lines=True)
         batch_size = self.batch_size
-        print('AuthorLevel', self.author_level)
+
         if self.author_level:
+            identifier = "authorIDs" if "queries" in data_fname else "authorSetIDs"
             data[identifier] = data[identifier].apply(lambda x: str(tuple(x)))
             data = data[[identifier, self.text_key]].groupby(identifier).fullText.apply(list).reset_index()
 
@@ -65,24 +97,41 @@ class SIV_Baseline_Luar(SIV):
             logging.info("Setting batch size to 1 for author level embeddings with LUAR.")
 
         else:
-            logging.info("Setting batch size to 1 for document level embeddings with LUAR.")
             identifier = "documentID"
 
         all_identifiers, all_outputs = [], []
 
+        length = len(data) if len(data) < 100 else 100
         for i in range(0, len(data), batch_size):
-            chunk = data.iloc[i:i+batch_size]
-            text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
+            print(i)
+            chunk = data.iloc[i : i + batch_size]
 
-            num_samples_per_author = text[0][0].shape[0]
+            text_list = chunk[self.text_key]
 
-            input_ids = torch.cat([elem[0] for elem in text], dim=0)
-            attention_mask = torch.cat([elem[1] for elem in text], dim=0)
+            # Process each text individually and tokenize
+            all_samples = []
+            for text in text_list.values:
+                samples = self.split_text_to_samples(text, min_tokens=self.token_max_length)
+                all_samples.extend(samples)
+
+            # Tokenize the samples to generate input_ids and attention_mask
+            tokenized = tokenizer(
+                all_samples,
+                padding=True,
+                truncation=True,
+                max_length=self.token_max_length,
+                return_tensors="pt"
+            )
+            input_ids = tokenized["input_ids"]
+            attention_mask = tokenized["attention_mask"]
 
             if torch.cuda.is_available():
                 input_ids = input_ids.to("cuda")
                 attention_mask = attention_mask.to("cuda")
-            
+
+            # Reshape and pass through the model
+            num_samples_per_author = input_ids.shape[0]
+
             with torch.no_grad():
                 input_ids = input_ids.unsqueeze(1).unsqueeze(1)
                 attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
@@ -97,7 +146,7 @@ class SIV_Baseline_Luar(SIV):
             identifier: all_identifiers,
             "features": all_outputs,
         })
-        print(len(all_identifiers), len(all_outputs), np.array(all_outputs).shape)
+
         return dataset
 
     def generate_sivs(self, input_dir, output_dir, run_id, ta1_approach):

@@ -64,12 +64,12 @@ class SIV_Multilayer_Luar(SIV):
         # Load tokenizer
         self.tokenizer = load_tokenizer(self.language, os.path.join(os.getcwd()))
 
-    def split_text_to_samples(self, text, tokenizer, min_tokens, max_samples):
+    def split_text_to_samples(self, text, min_tokens=32):
         """
-        Splits a single text into samples with at least `min_tokens` while keeping sentences intact.
+        Splits a single text into samples with at least `min_tokens` tokens, keeping sentences intact.
         """
         if isinstance(text, list):
-        # Concatenate list of strings into a single string
+            # Concatenate list of strings into a single string
             text = " ".join(text)
 
         sentences = sent_tokenize(text)  # Split into sentences
@@ -78,31 +78,21 @@ class SIV_Multilayer_Luar(SIV):
         current_token_count = 0
 
         for sentence in sentences:
-            # Tokenize the sentence and count tokens
-            tokenized_sentence = tokenizer(sentence, truncation=False)["input_ids"]
-            token_count = len(tokenized_sentence)
+            # Add sentence to the current sample
+            current_sample.append(sentence)
+            current_token_count += len(sentence.split())  # Rough word count as a proxy for tokens
 
-            # Check if adding this sentence will exceed the minimum token limit
-            if current_token_count + token_count >= min_tokens:
-                # Finalize the current sample and start a new one
-                current_sample.extend(tokenized_sentence)
-                samples.append(current_sample)
+            # If token count exceeds min_tokens, finalize the sample
+            if current_token_count >= min_tokens:
+                samples.append(" ".join(current_sample))
                 current_sample = []
                 current_token_count = 0
 
-                # Stop if we reach the max_samples limit
-                if len(samples) == max_samples:
-                    break
-            else:
-                # Add sentence to the current sample
-                current_sample.extend(tokenized_sentence)
-                current_token_count += token_count
+        # Add remaining sentences as a final sample
+        if current_sample:
+            samples.append(" ".join(current_sample))
 
-        # # Add the last sample if it meets the token limit
-        # if current_sample and len(samples) < max_samples:
-        #     samples.append(current_sample)
-
-        return samples[:max_samples]  # Ensure we don't exceed the max number of samples
+        return samples
 
     def extract_embeddings(self, model, tokenizer, data_fname):
         data = pd.read_json(data_fname, lines=True)
@@ -120,42 +110,41 @@ class SIV_Multilayer_Luar(SIV):
             identifier = "documentID"
 
         all_identifiers, all_outputs = [], []
-            
-        length=len(data) if len(data) < 100 else 100
+
+        length = len(data) if len(data) < 100 else 100
         for i in range(0, len(data), batch_size):
             print(i)
             chunk = data.iloc[i : i + batch_size]
 
             text_list = chunk[self.text_key]
 
-            # Process each text individually without mixing
+            # Process each text individually and tokenize
             all_samples = []
             for text in text_list.values:
-                samples = self.split_text_to_samples(text, tokenizer, min_tokens=self.params.token_max_length, max_samples=16)
+                samples = self.split_text_to_samples(text, min_tokens=32)
                 all_samples.extend(samples)
 
-                # Stop if we've reached 16 samples
-                # if len(all_samples) >= 16:
-                #     break
+            # Tokenize the samples to generate input_ids and attention_mask
+            tokenized = tokenizer(
+                all_samples,
+                padding=True,
+                truncation=True,
+                max_length=self.token_max_length,
+                return_tensors="pt"
+            )
+            input_ids = tokenized["input_ids"]
+            attention_mask = tokenized["attention_mask"]
 
-            # Ensure we have exactly 16 samples by padding with zeros if needed
-            # while len(all_samples) < 16:
-            #     all_samples.append([0] * self.token_max_length)
-
-            # Prepare inputs for the model
-            input_ids = torch.tensor([sample[:self.token_max_length] for sample in all_samples])
-            attention_mask = torch.tensor([[1] * len(sample[:self.token_max_length]) for sample in all_samples])
-
-            num_samples_per_author = input_ids.shape[0]
             if torch.cuda.is_available():
                 input_ids = input_ids.to("cuda")
                 attention_mask = attention_mask.to("cuda")
 
+            # Reshape and pass through the model
+            num_samples_per_author = input_ids.shape[0]
+            input_ids = input_ids.unsqueeze(1).reshape((-1, 1, num_samples_per_author, self.token_max_length))
+            attention_mask = attention_mask.unsqueeze(1).reshape((-1, 1, num_samples_per_author, self.token_max_length))
+
             with torch.no_grad():
-                input_ids = input_ids.unsqueeze(1)
-                attention_mask = attention_mask.unsqueeze(1)
-                input_ids = input_ids.reshape((-1, 1, num_samples_per_author, self.token_max_length))
-                attention_mask = attention_mask.reshape((-1, 1, num_samples_per_author, self.token_max_length))
                 output, _ = self.model.get_episode_embeddings((input_ids, attention_mask))
 
             all_identifiers.extend(chunk[identifier])
@@ -167,6 +156,7 @@ class SIV_Multilayer_Luar(SIV):
         })
 
         return dataset
+
 
     def generate_sivs(self, input_dir, output_dir, run_id, ta1_approach):
         queries_fname, candidates_fname = get_file_paths(input_dir)
