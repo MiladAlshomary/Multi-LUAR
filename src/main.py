@@ -56,7 +56,7 @@ def main(params):
         # get the latest checkpoint
         version = "version_0" if params.version is None else params.version
         path = os.path.join(experiment_dir, params.log_dirname, version, 'checkpoints', '*.ckpt')
-        resume_from_checkpoint = glob.glob(path)[-1]
+        resume_from_checkpoint = glob.glob(path)[0]
         print("Checkpoint: {}".format(resume_from_checkpoint))
 
         checkpoint = torch.load(resume_from_checkpoint)
@@ -72,7 +72,7 @@ def main(params):
         logger=logger,
         callbacks=[checkpoint_callback],
         accelerator='gpu',  # Specify GPU as the accelerator
-        devices=[1],  # Use appropriate GPU count
+        devices=[0],  # Use appropriate GPU count
         strategy='dp' if len(params.gpus) > 1 else None,
         precision=params.precision,
         limit_val_batches=limit_val_batches,

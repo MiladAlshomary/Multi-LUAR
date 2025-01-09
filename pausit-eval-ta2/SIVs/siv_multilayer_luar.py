@@ -11,9 +11,16 @@ from nltk.tokenize import sent_tokenize
 
 from src.models.transformer import Transformer
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
+<<<<<<< Updated upstream
 
 CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
 
+=======
+from tqdm import tqdm
+    
+CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=4-step=74405.ckpt"
+# CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
+>>>>>>> Stashed changes
 class SIV_Multilayer_Luar(SIV):
     def __init__(self, input_dir, query_identifier, candidate_identifier, params, language="en"):
         super().__init__(input_dir, query_identifier, candidate_identifier, language)
@@ -21,8 +28,13 @@ class SIV_Multilayer_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
+<<<<<<< Updated upstream
         self.token_max_length = self.params.token_max_length
         self.document_batch_size = 32
+=======
+        self.token_max_length = 512 #self.params.token_max_length
+        self.document_batch_size = 0
+>>>>>>> Stashed changes
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -145,11 +157,23 @@ class SIV_Multilayer_Luar(SIV):
             attention_mask = attention_mask.unsqueeze(1).reshape((-1, 1, num_samples_per_author, self.token_max_length))
 
             with torch.no_grad():
+<<<<<<< Updated upstream
                 output, _ = self.model.get_episode_embeddings((input_ids, attention_mask))
 
             all_identifiers.extend(chunk[identifier])
             all_outputs.append(output.cpu().numpy().tolist())
 
+=======
+                input_ids = input_ids.unsqueeze(1).unsqueeze(1)
+                attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
+                input_ids = input_ids.reshape((-1, num_samples_per_author, self.token_max_length))
+                attention_mask = attention_mask.reshape((-1, num_samples_per_author, self.token_max_length))
+                output = model.get_episode_embeddings(input_ids, attention_mask, document_batch_size=self.document_batch_size)
+
+            all_identifiers.extend(chunk[identifier])
+            all_outputs.extend([output.cpu().numpy().tolist()])
+        
+>>>>>>> Stashed changes
         dataset = Dataset.from_dict({
             identifier: all_identifiers,
             "features": all_outputs,

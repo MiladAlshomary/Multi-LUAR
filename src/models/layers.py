@@ -77,6 +77,7 @@ def memory_efficient_attention(
     q_chunks = q.split(q_bucket_size, dim = -2)
     k_chunks = k.split(k_bucket_size, dim = -2)
     v_chunks = v.split(k_bucket_size, dim = -2)
+
     mask_chunks = mask.split(k_bucket_size, dim = -1) if exists(mask) else ((None,) * len(k_chunks))
 
     # loop through all chunks and accumulate
@@ -87,7 +88,7 @@ def memory_efficient_attention(
         weight_maxes = []
         
         for k_index, (k_chunk, v_chunk, mask_chunk) in enumerate(zip(k_chunks, v_chunks, mask_chunks)):
-
+            
             exp_weight_chunk, weighted_value_chunk, weight_max_chunk = summarize_qkv_fn(
                 q_chunk,
                 k_chunk,

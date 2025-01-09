@@ -50,7 +50,11 @@ def parse_flags(argv):
         ("-l", "--language"): {"type": str, "default": "eng", "choices": ["eng", "ru"], "help": "Language"},
         ("-ta1", "--ta1-approach"): {"type": str, "choices": ['datadreamer_lora', 'baseline_sbert', 'baseline_luar', 'multilayer_luar', 'gram2vec', 'russian_st'], "default": "none", "help": "TA1 approach"},
         ("-g", "--generate-features"): {"action": "store_true", "help": "Generate TA1 features"},
+<<<<<<< Updated upstream
         ("-ta2", "--ta2-approach"): {"type": str, "choices": ['srs', 'baseline', 'mean_cosine'], "required": True, "help": "TA2 approach"},
+=======
+        ("-ta2", "--ta2-approach"): {"type": str, "choices": ['srs', 'multilayer_luar_nikhil', 'baseline', 'mean_cosine'], "required": True, "help": "TA2 approach"},
+>>>>>>> Stashed changes
         ("-m", "--model-path"): {"type": str, "default": None, "help": "Path to the model for Russian Sentence Transformer"},
         ("-ckpt", "--checkpoint-path"): {"type": str, "default": None, "help": "Path to load LUAR model checkpoint"},
     }
@@ -106,6 +110,16 @@ def main(args):
             te_results = run_te_eval(args.run_id, args.ground_truth_dir, args.input_dir, output_dir)
             print(te_results)
 
+<<<<<<< Updated upstream
+=======
+        if args.ta2_approach == 'multilayer_luar_nikhil':
+            sim = MultLuarSimilarity(query_features, candidate_features, query_labels, candidate_labels, args.input_dir)
+            sim.compute_similarities()
+            sim.save_ta2_output(output_dir, args.run_id, args.ta1_approach)
+            te_results = run_te_eval(args.run_id, args.ground_truth_dir, args.input_dir, output_dir)
+            print(te_results)
+        
+>>>>>>> Stashed changes
     else:
         if args.ta2_approach == 'baseline':
             query_features, candidate_features, query_labels, candidate_labels = get_features(args.input_dir, args.ta1_approach, args.query_identifier, args.candidate_identifier)
@@ -119,6 +133,17 @@ def main(args):
             te_results = run_te_eval(args.run_id, args.ground_truth_dir, args.input_dir, output_dir)
             print(te_results)
 
+<<<<<<< Updated upstream
+=======
+        elif args.ta2_approach == 'multilayer_luar_nikhil':
+            query_features, candidate_features, query_labels, candidate_labels = get_features(args.input_dir, args.ta1_approach, args.query_identifier, args.candidate_identifier)
+            sim = MultLuarSimilarity(query_features, candidate_features, query_labels, candidate_labels, args.input_dir)
+            sim.compute_similarities()
+            sim.save_ta2_output(output_dir, args.run_id, args.ta1_approach)
+            te_results = run_te_eval(args.run_id, args.ground_truth_dir, args.input_dir, output_dir)
+            print(te_results)
+
+>>>>>>> Stashed changes
         else:
             raise ValueError(f"TA2 approach {args.ta2_approach} not recognized")
     print(f"==> Total duration (s): {time.time()-START}\n")

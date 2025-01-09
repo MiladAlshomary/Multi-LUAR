@@ -63,7 +63,7 @@ def create_argument_parser(additional_args=None):
                         help="Precision of model weights")
     parser.add_argument("--num_workers", type=int, default=10,
                         help="Number of workers to prefetch data")
-    parser.add_argument("--num_epoch", type=int, default=20,
+    parser.add_argument("--num_epoch", type=int, default=10,
                         help="Number of epochs")
     parser.add_argument("--pin_memory", action='store_true', default=False,
                         help="Used pin memory for prefetching data")
