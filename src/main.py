@@ -65,7 +65,6 @@ def main(params):
         model.load_state_dict(checkpoint['state_dict'], strict=False)
 
         last_linear_layer = model.layer_linear[-1]
-        print(last_linear_layer.weight.data)
 
     logger = TensorBoardLogger(experiment_dir, name=params.log_dirname, version=params.version)
     trainer = pt.Trainer(
@@ -87,8 +86,9 @@ def main(params):
 
     if params.evaluate:
         trainer.test(model)
-        trainer.save_model('./multi_luar_' + params.experiment_id)
-
+        model.save_pretrained('./multi_luar_' + params.experiment_id, safe_serialization=False)
+        torch.save(model.state_dict(),'./multi_luar_' + params.experiment_id + '/pytorch_model.bin')
+        
 if __name__ == "__main__":
     parser = create_argument_parser()
     main(parser.parse_args())

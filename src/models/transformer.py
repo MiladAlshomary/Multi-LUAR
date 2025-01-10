@@ -14,8 +14,9 @@ from transformers import AutoModel
 from .layers import MemoryEfficientAttention, SelfAttention
 from .lightning_trainer import LightningTrainer
 from src.utilities.file_utils import Utils as utils
+from huggingface_hub import PyTorchModelHubMixin
 
-class Transformer(LightningTrainer):
+class Transformer(LightningTrainer, PyTorchModelHubMixin):
     """Defines the SBERT model.
     """
     def __init__(self, params):
