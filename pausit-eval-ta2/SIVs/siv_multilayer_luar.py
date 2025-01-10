@@ -6,21 +6,15 @@ from datasets import DatasetDict, Dataset
 from absl import logging
 import pandas as pd
 import torch
-from nltk.tokenize import sent_tokenize
-
 
 from src.models.transformer import Transformer
+from src.models.model import LUAR
+
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
-<<<<<<< Updated upstream
-
-CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
-
-=======
 from tqdm import tqdm
     
-CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=4-step=74405.ckpt"
-# CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
->>>>>>> Stashed changes
+#CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
+CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
 class SIV_Multilayer_Luar(SIV):
     def __init__(self, input_dir, query_identifier, candidate_identifier, params, language="en"):
         super().__init__(input_dir, query_identifier, candidate_identifier, language)
@@ -28,13 +22,8 @@ class SIV_Multilayer_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-<<<<<<< Updated upstream
-        self.token_max_length = self.params.token_max_length
-        self.document_batch_size = 32
-=======
         self.token_max_length = 512 #self.params.token_max_length
         self.document_batch_size = 0
->>>>>>> Stashed changes
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -63,48 +52,18 @@ class SIV_Multilayer_Luar(SIV):
         print("Loading MultiLayer LUAR")
         
         # Initialize Transformer model
-        self.model = Transformer(args)
+        self.model = LUAR(args)
 
         # Load the checkpoint
         checkpoint = torch.load(CKPT_PATH, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint["state_dict"], strict=False)
-
+        
         if torch.cuda.is_available():
             print("Using CUDA")
             self.model.cuda()
 
         # Load tokenizer
         self.tokenizer = load_tokenizer(self.language, os.path.join(os.getcwd()))
-
-    def split_text_to_samples(self, text, min_tokens=32):
-        """
-        Splits a single text into samples with at least `min_tokens` tokens, keeping sentences intact.
-        """
-        if isinstance(text, list):
-            # Concatenate list of strings into a single string
-            text = " ".join(text)
-
-        sentences = sent_tokenize(text)  # Split into sentences
-        samples = []
-        current_sample = []
-        current_token_count = 0
-
-        for sentence in sentences:
-            # Add sentence to the current sample
-            current_sample.append(sentence)
-            current_token_count += len(sentence.split())  # Rough word count as a proxy for tokens
-
-            # If token count exceeds min_tokens, finalize the sample
-            if current_token_count >= min_tokens:
-                samples.append(" ".join(current_sample))
-                current_sample = []
-                current_token_count = 0
-
-        # Add remaining sentences as a final sample
-        if current_sample:
-            samples.append(" ".join(current_sample))
-
-        return samples
 
     def extract_embeddings(self, model, tokenizer, data_fname):
         data = pd.read_json(data_fname, lines=True)
@@ -123,64 +82,36 @@ class SIV_Multilayer_Luar(SIV):
 
         all_identifiers, all_outputs = [], []
 
-        length = len(data) if len(data) < 100 else 100
-        for i in range(0, len(data), batch_size):
-            print(i)
-            chunk = data.iloc[i : i + batch_size]
+        for i in tqdm(range(0, len(data), batch_size)):
+            chunk = data.iloc[i:i+batch_size]
+            
+            text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
-            text_list = chunk[self.text_key]
+            num_samples_per_author = text[0][0].shape[0]
 
-            # Process each text individually and tokenize
-            all_samples = []
-            for text in text_list.values:
-                samples = self.split_text_to_samples(text, min_tokens=32)
-                all_samples.extend(samples)
-
-            # Tokenize the samples to generate input_ids and attention_mask
-            tokenized = tokenizer(
-                all_samples,
-                padding=True,
-                truncation=True,
-                max_length=self.token_max_length,
-                return_tensors="pt"
-            )
-            input_ids = tokenized["input_ids"]
-            attention_mask = tokenized["attention_mask"]
+            input_ids = torch.cat([elem[0] for elem in text], dim=0)
+            attention_mask = torch.cat([elem[1] for elem in text], dim=0)
 
             if torch.cuda.is_available():
                 input_ids = input_ids.to("cuda")
                 attention_mask = attention_mask.to("cuda")
-
-            # Reshape and pass through the model
-            num_samples_per_author = input_ids.shape[0]
-            input_ids = input_ids.unsqueeze(1).reshape((-1, 1, num_samples_per_author, self.token_max_length))
-            attention_mask = attention_mask.unsqueeze(1).reshape((-1, 1, num_samples_per_author, self.token_max_length))
-
+            
             with torch.no_grad():
-<<<<<<< Updated upstream
-                output, _ = self.model.get_episode_embeddings((input_ids, attention_mask))
-
-            all_identifiers.extend(chunk[identifier])
-            all_outputs.append(output.cpu().numpy().tolist())
-
-=======
                 input_ids = input_ids.unsqueeze(1).unsqueeze(1)
                 attention_mask = attention_mask.unsqueeze(1).unsqueeze(1)
                 input_ids = input_ids.reshape((-1, num_samples_per_author, self.token_max_length))
                 attention_mask = attention_mask.reshape((-1, num_samples_per_author, self.token_max_length))
                 output = model.get_episode_embeddings(input_ids, attention_mask, document_batch_size=self.document_batch_size)
-
+        
             all_identifiers.extend(chunk[identifier])
             all_outputs.extend([output.cpu().numpy().tolist()])
         
->>>>>>> Stashed changes
         dataset = Dataset.from_dict({
             identifier: all_identifiers,
             "features": all_outputs,
         })
 
         return dataset
-
 
     def generate_sivs(self, input_dir, output_dir, run_id, ta1_approach):
         queries_fname, candidates_fname = get_file_paths(input_dir)

@@ -10,12 +10,8 @@ from transformers import AutoModel, AutoTokenizer
 from absl import logging
 
 
-<<<<<<< Updated upstream
-SBERT_PATH = "/home/nv2415/LUAR/pretrained_weights/paraphrase-distilroberta-base-v1"
-=======
 SBERT_PATH = "/mnt/swordfish-pool2/nikhil/LUAR/pretrained_weights/paraphrase-distilroberta-base-v1"
->>>>>>> Stashed changes
-LUAR_PATH =  "/home/nv2415/LUAR/pretrained_weights/LUAR-MUD"
+LUAR_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/pretrained_weights/LUAR-MUD"
 
 
 def get_file_paths(input_path):
