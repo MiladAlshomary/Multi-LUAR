@@ -86,9 +86,7 @@ def main(params):
 
     if params.evaluate:
         trainer.test(model)
-        model.save_pretrained('./multi_luar_' + params.experiment_id, safe_serialization=False)
-        torch.save(model.state_dict(),'./multi_luar_' + params.experiment_id + '/pytorch_model.bin')
-        
+
 if __name__ == "__main__":
     parser = create_argument_parser()
     main(parser.parse_args())

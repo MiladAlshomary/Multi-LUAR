@@ -7,14 +7,14 @@ from absl import logging
 import pandas as pd
 import torch
 
-from src.models.transformer import Transformer
-from src.models.model import LUAR
-
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
 from tqdm import tqdm
+
+from transformers import AutoModel, AutoTokenizer
     
 #CKPT_PATH =  "/home/nv2415/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
-CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_2/checkpoints/epoch=19-step=255100.ckpt"
+LUAR_PATH =  "/mnt/swordfish-pool2/milad/Multi-LUAR/src/reddit_model/"
+
 class SIV_Multilayer_Luar(SIV):
     def __init__(self, input_dir, query_identifier, candidate_identifier, params, language="en"):
         super().__init__(input_dir, query_identifier, candidate_identifier, language)
@@ -22,7 +22,7 @@ class SIV_Multilayer_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-        self.token_max_length = 512 #self.params.token_max_length
+        self.token_max_length = 32 #self.params.token_max_length
         self.document_batch_size = 0
 
     def set_batch_size(self, batch_size):
@@ -49,14 +49,9 @@ class SIV_Multilayer_Luar(SIV):
         return self.query_features, self.candidate_features, self.query_labels, self.candidate_labels
 
     def load_model(self, args):
-        print("Loading MultiLayer LUAR")
+        print("Loading MultiLayer LUAR: ", LUAR_PATH)
         
-        # Initialize Transformer model
-        self.model = LUAR(args)
-
-        # Load the checkpoint
-        checkpoint = torch.load(CKPT_PATH, map_location=torch.device("cpu"))
-        self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+        self.model = AutoModel.from_pretrained(LUAR_PATH, trust_remote_code=True)
         
         if torch.cuda.is_available():
             print("Using CUDA")
@@ -85,12 +80,11 @@ class SIV_Multilayer_Luar(SIV):
         for i in tqdm(range(0, len(data), batch_size)):
             chunk = data.iloc[i:i+batch_size]
             
-            # author_txts = "\n".join(chunk[self.text_key].tolist()[0]).split(" ")
-            # author_txts = [" ".join(author_txts[i:i+self.token_max_length]) for i in range(0, len(author_txts), self.token_max_length)]
-            # # print(chunk[0:2])
-            # text = [tokenize(author_txts, tokenizer, self.token_max_length)]
+            author_txts = "\n".join(chunk[self.text_key].tolist()[0]).split(" ")
+            author_txts = [" ".join(author_txts[i:i+self.token_max_length]) for i in range(0, len(author_txts), self.token_max_length)]
+            text = [tokenize(author_txts, tokenizer, self.token_max_length)]
             
-            text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
+            #text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
             num_samples_per_author = text[0][0].shape[0]
 
