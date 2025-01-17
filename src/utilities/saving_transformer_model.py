@@ -20,12 +20,15 @@ class LUARConfig(PretrainedConfig):
         use_memory_efficient_attention=False,
         q_bucket_size=512,
         k_bucket_size=1024,
+        sentence_transformer_support=False,
         **kwargs,
     ):
         self.embedding_size = embedding_size
         self.use_memory_efficient_attention = use_memory_efficient_attention
         self.q_bucket_size = q_bucket_size
         self.k_bucket_size = k_bucket_size
+        self.sentence_transformer_support = sentence_transformer_support
+        self.hidden_size = embedding_size
         super().__init__(**kwargs)
 
 
@@ -163,6 +166,8 @@ class MultiLUARs(PreTrainedModel):
             [nn.Linear(self.hidden_size, config.embedding_size) for _ in range(self.transformer.config.num_hidden_layers + 1)]
         )
 
+        self.sentence_transformer_support = config.sentence_transformer_support
+
     def create_transformer(self):
         """Creates the Transformer backbone.
         """
@@ -179,11 +184,10 @@ class MultiLUARs(PreTrainedModel):
         sum_mask = torch.clamp(reduce(input_mask_expanded, 'b l d -> b d', 'sum'), min=1e-9)
         return sum_embeddings / sum_mask
     
-    def get_episode_embeddings(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0):
+    def get_episode_embeddings(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0, average_layers=False):
         """Computes the Author Embedding. 
         """
         B, E, _ = attention_mask.shape
-
         input_ids = rearrange(input_ids, 'b e l -> (b e) l')
         attention_mask = rearrange(attention_mask, 'b e l -> (b e) l')
         outputs = self.transformer(
@@ -196,34 +200,57 @@ class MultiLUARs(PreTrainedModel):
          
         all_layer_comment_embeddings = []
         all_layer_episode_embeddings = []
-
+        
         for layer_idx, layer_hidden_state in enumerate(outputs['hidden_states']):
             # Mean pooling
             layer_comment_embeddings = self.mean_pooling(layer_hidden_state, attention_mask)
             layer_comment_embeddings = rearrange(layer_comment_embeddings, '(b e) l -> b e l', b=B, e=E)
             all_layer_comment_embeddings.append(layer_comment_embeddings)
-
             # Attention mechanism and reduce
             layer_episode_embeddings = self.attn_fn(layer_comment_embeddings, layer_comment_embeddings, layer_comment_embeddings)
             layer_episode_embeddings = reduce(layer_episode_embeddings, 'b e l -> b l', 'max')
             # Use the specific linear layer for this transformer layer
             layer_episode_embeddings = self.layer_linear[layer_idx](layer_episode_embeddings)
-            
             # Add a layer dimension
             layer_episode_embeddings = rearrange(layer_episode_embeddings, 'b d -> 1 b d')
             all_layer_episode_embeddings.append(layer_episode_embeddings)
 
         # Concatenate all layers along the first dimension
         all_layer_episode_embeddings = torch.cat(all_layer_episode_embeddings, dim=0)
-
+        if average_layers:
+            all_layer_episode_embeddings = torch.mean(all_layer_episode_embeddings, dim=0)
+            
         return all_layer_episode_embeddings
-    
-    def forward(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0):
+
+    def rearrange_inputs(self, input_ids, attention_mask):
+        seq_length = input_ids.shape[1]
+        batch_size = input_ids.shape[0]
+
+        episode_length = int(seq_length/32)
+        
+        if episode_length == 0:
+            input_ids = input_ids.unsqueeze(1)
+            attention_mask = attention_mask.unsqueeze(1)
+        else:
+            input_ids = input_ids.reshape(batch_size, episode_length, -1)
+            attention_mask = attention_mask.reshape(batch_size, episode_length, -1)
+            
+        return input_ids, attention_mask
+        
+    def forward(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0, average_layers=False, **kwargs):
         """Calculates a fixed-length feature vector for a batch of episode samples.
         """
-        output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size)
+        if self.sentence_transformer_support:
+            input_ids, attention_mask = self.rearrange_inputs(input_ids, attention_mask)
+        
+        output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size, average_layers=average_layers)
 
-        return output
+        if self.sentence_transformer_support:
+            output = rearrange(output, 'l b e-> b l e')
+            return output, output, output
+        
+        else:
+            return output
 
 if __name__ == '__main__':
     output_path = './reddit_model'
