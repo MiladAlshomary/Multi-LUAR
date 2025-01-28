@@ -143,6 +143,7 @@ def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, labels
     pairs_of_sim_index = []
     for label in set(labels):
         label_indices = np.where(np.array(labels) == label)[0]
+
         if len(label_indices) == 1:
             continue
 
@@ -152,9 +153,7 @@ def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, labels
         for i in range(len(label_indices)):
             for j in range(i+1, len(label_indices)):
                 zscore_vector = zscore_matrix[:, i, j]
-                if i == j:
-                    continue
-                if zscore_vector[layer] >= 2 and np.argmax(zscore_vector) == layer:
+                if zscore_vector[layer] > 2.5: #np.argmax(zscore_vector) == layer:
                     # Extract the two texts, and their similarities across the n layers
                     author1_text = hiatus_data_texts[label_indices[i]]
                     author2_text = hiatus_data_texts[label_indices[j]]
