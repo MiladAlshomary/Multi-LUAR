@@ -9,7 +9,7 @@ import torch
 
 from SIVs.utils import get_file_paths, load_model, load_tokenizer, tokenize, save_files
 
-
+CKPT_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/src/output/reddit_model/lightning_logs/version_5/checkpoints/epoch=19-step=255100.ckpt"
 class SIV_Baseline_Luar(SIV):
 
     def __init__(self, input_dir, query_identifier, candidate_identifier, language="en"):
@@ -17,7 +17,7 @@ class SIV_Baseline_Luar(SIV):
         self.batch_size = 16
         self.author_level = True
         self.text_key = "fullText"
-        self.token_max_length = 32
+        self.token_max_length = 512
         self.document_batch_size = 32
 
     def set_batch_size(self, batch_size):
@@ -48,6 +48,10 @@ class SIV_Baseline_Luar(SIV):
         self.model = load_model(os.path.join(os.getcwd()), luar=True, language=self.language)
         self.tokenizer = load_tokenizer(self.language, os.path.join(os.getcwd()))
 
+        # Load the checkpoint
+        checkpoint = torch.load(CKPT_PATH, map_location=torch.device("cpu"))
+        self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+
         if torch.cuda.is_available():
             logging.info("Using CUDA")
             self.model.half().cuda()
@@ -68,8 +72,8 @@ class SIV_Baseline_Luar(SIV):
             identifier = "documentID"
 
         all_identifiers, all_outputs = [], []
-        length=len(data) if len(data) < 100 else 100
-        for i in range(0, length, batch_size):
+
+        for i in range(0, len(data), batch_size):
             chunk = data.iloc[i:i+batch_size]
             text = [tokenize(t, tokenizer, self.token_max_length) for t in chunk[self.text_key]]
 
@@ -92,8 +96,6 @@ class SIV_Baseline_Luar(SIV):
             all_identifiers.extend(chunk[identifier])
             all_outputs.extend(output.cpu().numpy().tolist())
 
-            print(chunk[identifier])
-        print(all_identifiers)
         dataset = Dataset.from_dict({
             identifier: all_identifiers,
             "features": all_outputs,

@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 import pandas as pd
 from spacy.lang.en import English
 from tqdm import tqdm
+import os
 
 from glob import glob
 
@@ -125,53 +126,53 @@ def process_author(data):
     return new_data
 
 def main():
-    data_path = args.data_path
-    truth_path = args.truth_path
+    data_path = args.input_data_path
+    truth_path = args.groundtruth_path
+
+    text_key = "fullText"
 
     queries_fname, candidates_fname = get_file_paths(data_path)
 
     queries = pd.read_json(queries_fname, lines=True)
     targets = pd.read_json(candidates_fname, lines=True)
 
-    identifier = "authorIDs" if "queries" in data_fname else "authorSetIDs"
-    data[identifier] = data[identifier].apply(lambda x: str(tuple(x)))
-    data = data[[identifier, self.text_key]].groupby(identifier).fullText.apply(list).reset_index()
+    identifier = "authorIDs" 
+    queries[identifier] = queries[identifier].apply(lambda x: str(tuple(x)))
+    queries = queries[[identifier, text_key]].groupby(identifier).fullText.apply(list).reset_index()
 
+    identifier = "authorSetIDs"
+    targets[identifier] = targets[identifier].apply(lambda x: str(tuple(x)))
+    targets = targets[[identifier, text_key]].groupby(identifier).fullText.apply(list).reset_index()
 
-    data = pd.read_json(data_path, lines=True)
-    truth = pd.read_json(truth_path, lines=True)
+    print(queries.head)
+    # data = pd.read_json(data_path, lines=True)
+    # truth = pd.read_json(truth_path, lines=True)
 
-    author_data = gather_author_data(data, truth)
+    # author_data = gather_author_data(data, truth)
 
-    print("Gathering author data")
-    pool = Pool(40)
-    results = list(tqdm(pool.imap(process_author, author_data.values()), total=len(author_data)))
-    pool.close()
+    # print("Gathering author data")
+    # pool = Pool(40)
+    # results = list(tqdm(pool.imap(process_author, author_data.values()), total=len(author_data)))
+    # pool.close()
     
-    authors = list(author_data.keys())
-    author_ids = dict(zip(authors, range(len(authors))))
+    # authors = list(author_data.keys())
+    # author_ids = dict(zip(authors, range(len(authors))))
 
-    for author, r in zip(author_data.keys(), results):
-        r["author_id"] = author_ids[author]
+    # for author, r in zip(author_data.keys(), results):
+    #     r["author_id"] = author_ids[author]
 
-    train_set, dev_set = [], []
+    # train_set, dev_set = [], []
 
-    print("Dividing into train / dev")
-    for i in tqdm(range(len(results))):
-        r = results[i]
-        
-        if r["is_dev"]:
-            del r["is_dev"]
-            dev_set.append(r)
-        else:
-            del r["is_dev"]
-            train_set.append(r)   
+    # print("Dividing into train / dev")
+    # for i in tqdm(range(len(results))):
+    #     r = results[i] 
+    #     dev_set.append(r)
 
-    print("Writing files")
-    with open("/mnt/swordfish-pool2/nikhil/pan_paragraph/train_raw.jsonl", 'w+') as f:
-        for line in train_set:
-            f.write(json.dumps(line))
-            f.write('\n')
+    # print("Writing files")
+    # with open("/mnt/swordfish-pool2/nikhil/pan_paragraph/train_raw.jsonl", 'w+') as f:
+    #     for line in train_set:
+    #         f.write(json.dumps(line))
+    #         f.write('\n')
 
     queries_fname = "/mnt/swordfish-pool2/nikhil/raw_hiatus/queries_raw.jsonl"
     targets_fname = "/mnt/swordfish-pool2/nikhil/raw_hiatus/targets_raw.jsonl"
@@ -191,7 +192,7 @@ def main():
             tf.write(json.dumps(target))
             tf.write('\n')
             
-    return 0
+    # return 0
 
 if __name__ == "__main__":
     sys.exit(main())

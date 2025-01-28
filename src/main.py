@@ -16,7 +16,9 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from arguments import create_argument_parser
 from models.transformer import Transformer
 from utilities.file_utils import Utils as utils
+from transformers import AutoModel, AutoTokenizer
 
+LUAR_PATH =  "/mnt/swordfish-pool2/nikhil/LUAR/pretrained_weights/LUAR-MUD/"
 
 def main(params):
     # set random seeds reproduceability
@@ -32,8 +34,19 @@ def main(params):
     # create experiment_dir and load model
     experiment_dir = os.path.join(utils.output_path, params.experiment_id)
     experiment_dir = utils.path_exists(experiment_dir, True)
-    model = Transformer(params)
     
+    model = Transformer(params)
+
+    # # Step 2: Load pretrained weights from AutoModel
+    # pretrained_model = AutoModel.from_pretrained(LUAR_PATH, trust_remote_code=True)
+
+    # # Step 3: Extract the state_dict from the pretrained model
+    # pretrained_state_dict = pretrained_model.state_dict()
+
+    # # Step 4: Load the pretrained weights into your Transformer model
+    # # Ensure strict=False to avoid mismatch errors if there are additional or missing keys
+    # model.load_state_dict(pretrained_state_dict, strict=False)
+
     # compute validation if needed, otherwise just skip it and save 
     # every `period` checkpoints
     if params.validate:
@@ -61,9 +74,6 @@ def main(params):
 
         checkpoint = torch.load(resume_from_checkpoint)
         model.load_state_dict(checkpoint['state_dict'], strict=False)
-
-        last_linear_layer = model.layer_linear[-1]
-        print(last_linear_layer.weight.data)
 
     logger = TensorBoardLogger(experiment_dir, name=params.log_dirname, version=params.version)
     trainer = pt.Trainer(

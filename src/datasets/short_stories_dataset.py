@@ -44,9 +44,6 @@ class Short_Stories_Dataset(RetrievalDataset):
             # author_data = self.read_line(self.fhandle, index)
             author_data = self.data.iloc[index].to_dict()
             
-            # print(author_data[self.text_key])
-            print("(*************************************)")
-            print(len(author_data[self.text_key]))
 
             tokenized_episode = self.tokenizer(
                 author_data[self.text_key], 
@@ -56,10 +53,9 @@ class Short_Stories_Dataset(RetrievalDataset):
                 return_tensors='pt'
             )
             data = self.reformat_tokenized_inputs(tokenized_episode)
-            print(len(data))
-            print(data[0].shape)
+            
             data = [d.reshape(1, -1, self.params.token_max_length) for d in data]
-            print(data[0].shape)
+            
             author = torch.tensor([author_data["author_id"] for _ in range(self.num_sample_per_author)])
         else:
             text = []

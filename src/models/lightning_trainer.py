@@ -260,20 +260,36 @@ class LightningTrainer(pt.LightningModule, ABC):
         return_dict = self._internal_step(batch, split_name="test_")
         return return_dict
 
+    # def training_step_end(self, step_outputs):
+    #     """Calculates the contrastive loss for each layer and logs it."""
+    #     all_layer_episode_embeddings = step_outputs["embedding"]
+    #     labels = step_outputs["ground_truth"]
+    #     total_loss_episode = 0
+
+    #     for layer_idx, episode_embeddings in enumerate(all_layer_episode_embeddings):
+    #         loss_episode = self.loss(episode_embeddings, labels)
+    #         total_loss_episode += loss_episode
+
+    #     total_loss_episode /= len(all_layer_episode_embeddings)
+    #     self.log("loss", total_loss_episode, on_step=True, on_epoch=True, prog_bar=True)
+
+    #     return {"loss": total_loss_episode}
+    
     def training_step_end(self, step_outputs):
-        """Calculates the contrastive loss for each layer and logs it."""
-        all_layer_episode_embeddings = step_outputs["embedding"]
+        """Calculate the loss function according to the embeddings from every step.
+        """
+        episode_embeddings = step_outputs["embedding"]
         labels = step_outputs["ground_truth"]
-        total_loss_episode = 0
 
-        for layer_idx, episode_embeddings in enumerate(all_layer_episode_embeddings):
-            loss_episode = self.loss(episode_embeddings, labels)
-            total_loss_episode += loss_episode
+        loss = self.loss(episode_embeddings, labels)
 
-        total_loss_episode /= len(all_layer_episode_embeddings)
-        self.log("loss", total_loss_episode, on_step=True, on_epoch=True, prog_bar=True)
+        return_dict = {"loss": loss}
 
-        return {"loss": total_loss_episode}
+        self.log("loss", return_dict["loss"], 
+                on_step=True, on_epoch=True, prog_bar=True,
+                batch_size=episode_embeddings.size(0))
+        
+        return return_dict
         
     def validation_epoch_end(self, outputs):
         

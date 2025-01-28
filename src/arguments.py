@@ -55,7 +55,7 @@ def create_argument_parser(additional_args=None):
                         help="Specifies learning rate")
     parser.add_argument("--learning_rate_scaling", action="store_true", default=False,
                         help="Toggles variance-based learning rate scaling")
-    parser.add_argument("--batch_size", type=int, default=72,
+    parser.add_argument("--batch_size", type=int, default=84,
                         help="Number of authors to include in each batch")
     parser.add_argument("--load_checkpoint", default=False, action = 'store_true', 
                         help="If True, will load the latest checkpoint")
@@ -63,7 +63,7 @@ def create_argument_parser(additional_args=None):
                         help="Precision of model weights")
     parser.add_argument("--num_workers", type=int, default=10,
                         help="Number of workers to prefetch data")
-    parser.add_argument("--num_epoch", type=int, default=10,
+    parser.add_argument("--num_epoch", type=int, default=20,
                         help="Number of epochs")
     parser.add_argument("--pin_memory", action='store_true', default=False,
                         help="Used pin memory for prefetching data")
