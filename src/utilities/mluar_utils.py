@@ -10,10 +10,17 @@ from scipy.stats import zscore
 from matplotlib import pyplot as plt
 import math
 import pandas as pd
+import torch.nn.functional as F
 
-def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size = 8, is_multi_luar=False):
+
+def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size = 8, is_multi_luar=False, episod_length=32):
+    
+    cls = tokenizer.cls_token_id
+    pad = tokenizer.pad_token_id
+    eos = tokenizer.eos_token_id
+
     max_length = max_length
-    episode_length = int(max_length/32)
+    num_episods = int(max_length/episod_length)
     num_batches = int(len(sentences)/batch_size)
     sentences_embeddings = []
     with torch.no_grad():
@@ -23,24 +30,35 @@ def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size 
                 max_length=max_length,
                 padding="max_length", 
                 truncation=True,
-                return_tensors="pt"
+                return_tensors="pt",
+                add_special_tokens=False
             )
-            #print(tokenized_text['input_ids'].shape)
-            #print(tokenized_text['input_ids'].shape)
-            tokenized_text["input_ids"] = tokenized_text["input_ids"].reshape(batch_size, episode_length, -1)
-            #print(tokenized_text['input_ids'].shape)
-            #print(tokenized_text['input_ids'][0])
-            #print(tokenized_text['input_ids'][1])
-            tokenized_text["attention_mask"] = tokenized_text["attention_mask"].reshape(batch_size, episode_length, -1)
-            #print(tokenized_text["input_ids"].size())       # torch.Size([batch_size, episode_length, max_length])
-            #print(tokenized_text["attention_mask"].size())  # torch.Size([batch_size, episode_length, max_length])
-        
+
+            # Reshape the inputs into b, episode_length, 32
+            tokenized_text["input_ids"] = tokenized_text["input_ids"].reshape(batch_size, num_episods, -1)
+            tokenized_text["attention_mask"] = tokenized_text["attention_mask"].reshape(batch_size, num_episods, -1)
+
+            # Add cls token to all input_ids
+            input_ids = tokenized_text["input_ids"]
+            attention_mask = tokenized_text["attention_mask"]
+            true_lengths = torch.stack([torch.sum(torch.where(row != 1, 1, 0), 1) for row in input_ids])
+
+            input_ids = torch.cat((input_ids, torch.where(true_lengths >= episod_length, eos, pad).unsqueeze(2)), 2)
+            attention_mask = torch.cat((attention_mask, torch.where(true_lengths >= episod_length, 1, 0).unsqueeze(2)), 2)
+            
+            input_ids = F.pad(input_ids, (1, 0), 'constant', cls)
+            attention_mask = F.pad(attention_mask, (1, 0), 'constant', 1)
+
+            tokenized_text["input_ids"] = input_ids
+            tokenized_text["attention_mask"] = attention_mask
+
+
             out = model(**tokenized_text)
             if is_multi_luar:
                 out = rearrange(out, 'l b d -> b l d')
             sentences_embeddings.extend(out)
 
-    return sentences_embeddings
+    return sentences_embeddings, tokenized_text
 
 
 def compute_similarities(x, y, layer=None):
@@ -139,7 +157,21 @@ def load_aa_data(data_path, groundtruth_path):
 
     return all_df, candidates_df, queries_df
 
-def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, labels, layer):
+def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, layer):
+    zscore_matrix = zscore(muti_luar_layers_sims, axis=0)
+    pairs_of_sim_index = []
+    for i in range(muti_luar_layers_sims.shape[0]):
+        for j in range(i+1, muti_luar_layers_sims.shape[1]):
+            zscore_vector = zscore_matrix[:, i, j]
+            if zscore_vector[layer] > 1.5:
+                # Extract the two texts, and their similarities across the n layers
+                author1_text = hiatus_data_texts[i]
+                author2_text = hiatus_data_texts[j]
+                pairs_of_sim_index.append((author1_text, author2_text, zscore_vector, muti_luar_layers_sims[:, i, j]))
+                
+    return pairs_of_sim_index
+    
+def extract_sig_pairs_for_layer_with_similar_authors(hiatus_data_texts, muti_luar_layers_sims, labels, layer):
     pairs_of_sim_index = []
     for label in set(labels):
         label_indices = np.where(np.array(labels) == label)[0]
@@ -153,7 +185,7 @@ def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, labels
         for i in range(len(label_indices)):
             for j in range(i+1, len(label_indices)):
                 zscore_vector = zscore_matrix[:, i, j]
-                if zscore_vector[layer] > 2.5: #np.argmax(zscore_vector) == layer:
+                if zscore_vector[layer] > 1.5: #np.argmax(zscore_vector) == layer:
                     # Extract the two texts, and their similarities across the n layers
                     author1_text = hiatus_data_texts[label_indices[i]]
                     author2_text = hiatus_data_texts[label_indices[j]]
