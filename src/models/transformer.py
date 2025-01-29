@@ -25,7 +25,11 @@ class Transformer(LightningTrainer):
         
         self.learning_rate = params.learning_rate
         self.attn_fn = SelfAttention()
-        self.linear = nn.Linear(self.hidden_size, self.params.embedding_dim)
+        # self.linear = nn.Linear(self.hidden_size, self.params.embedding_dim)
+
+        self.layer_linear = nn.ModuleList(
+            [nn.Linear(self.hidden_size, self.params.embedding_dim) for _ in range(self.transformer.config.num_hidden_layers + 1)]
+        )
 
     def create_transformer(self):
         """Creates the Transformer model.
@@ -79,43 +83,11 @@ class Transformer(LightningTrainer):
         sum_mask = torch.clamp(reduce(input_mask_expanded, 'b l d -> b d', 'sum'), min=1e-9)
         return sum_embeddings / sum_mask
     
-    def get_episode_embeddings(self, data):
-        """Computes the Author Embedding. """
-        # batch_size, num_sample_per_author, episode_length
-        input_ids, attention_mask = data[0], data[1]
-            
-        B, N, E, _ = input_ids.shape
-        
-        input_ids = rearrange(input_ids, 'b n e l -> (b n e) l')
-        attention_mask = rearrange(attention_mask, 'b n e l -> (b n e) l')
-        
-        outputs = self.transformer(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            return_dict=True,
-            output_hidden_states=True
-        )
-
-        # at this point, we're embedding individual "comments"
-        comment_embeddings = self.mean_pooling(outputs['last_hidden_state'], attention_mask)
-        comment_embeddings = rearrange(comment_embeddings, '(b n e) l -> (b n) e l', b=B, n=N, e=E)
-
-        # aggregate individual comments embeddings into episode embeddings
-        episode_embeddings = self.attn_fn(comment_embeddings, comment_embeddings, comment_embeddings)
-        episode_embeddings = reduce(episode_embeddings, 'b e l -> b l', 'max')
-        
-        episode_embeddings = self.linear(episode_embeddings)
-        
-        return episode_embeddings, comment_embeddings
-        
     # def get_episode_embeddings(self, data):
-    #     """Computes embeddings for each layer and returns them."""
+    #     """Computes the Author Embedding. """
+    #     # batch_size, num_sample_per_author, episode_length
     #     input_ids, attention_mask = data[0], data[1]
-
-    #      # Ensure tensors are on the correct device and data type
-    #     input_ids = input_ids.to(self.transformer.device).to(torch.long)  # Ensure input_ids is torch.long
-    #     attention_mask = attention_mask.to(self.transformer.device).to(torch.float16)
-
+            
     #     B, N, E, _ = input_ids.shape
         
     #     input_ids = rearrange(input_ids, 'b n e l -> (b n e) l')
@@ -127,31 +99,63 @@ class Transformer(LightningTrainer):
     #         return_dict=True,
     #         output_hidden_states=True
     #     )
+
+    #     # at this point, we're embedding individual "comments"
+    #     comment_embeddings = self.mean_pooling(outputs['last_hidden_state'], attention_mask)
+    #     comment_embeddings = rearrange(comment_embeddings, '(b n e) l -> (b n) e l', b=B, n=N, e=E)
+
+    #     # aggregate individual comments embeddings into episode embeddings
+    #     episode_embeddings = self.attn_fn(comment_embeddings, comment_embeddings, comment_embeddings)
+    #     episode_embeddings = reduce(episode_embeddings, 'b e l -> b l', 'max')
         
-    #     all_layer_comment_embeddings = []
-    #     all_layer_episode_embeddings = []
+    #     episode_embeddings = self.linear(episode_embeddings)
+        
+    #     return episode_embeddings, comment_embeddings
+        
+    def get_episode_embeddings(self, data):
+        """Computes embeddings for each layer and returns them."""
+        input_ids, attention_mask = data[0], data[1]
 
-    #     for layer_idx, layer_hidden_state in enumerate(outputs['hidden_states']):
-    #         # Mean pooling
-    #         layer_comment_embeddings = self.mean_pooling(layer_hidden_state, attention_mask)
-    #         layer_comment_embeddings = rearrange(layer_comment_embeddings, '(b n e) l -> (b n) e l', b=B, n=N, e=E)
-    #         all_layer_comment_embeddings.append(layer_comment_embeddings)
+         # Ensure tensors are on the correct device and data type
+        input_ids = input_ids.to(self.transformer.device).to(torch.long)  # Ensure input_ids is torch.long
+        attention_mask = attention_mask.to(self.transformer.device).to(torch.float16)
 
-    #         # Attention mechanism and reduce
-    #         layer_episode_embeddings = self.attn_fn(layer_comment_embeddings, layer_comment_embeddings, layer_comment_embeddings)
-    #         layer_episode_embeddings = reduce(layer_episode_embeddings, 'b e l -> b l', 'max')
+        B, N, E, _ = input_ids.shape
+        
+        input_ids = rearrange(input_ids, 'b n e l -> (b n e) l')
+        attention_mask = rearrange(attention_mask, 'b n e l -> (b n e) l')
+        
+        outputs = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            return_dict=True,
+            output_hidden_states=True
+        )
+        
+        all_layer_comment_embeddings = []
+        all_layer_episode_embeddings = []
+
+        for layer_idx, layer_hidden_state in enumerate(outputs['hidden_states']):
+            # Mean pooling
+            layer_comment_embeddings = self.mean_pooling(layer_hidden_state, attention_mask)
+            layer_comment_embeddings = rearrange(layer_comment_embeddings, '(b n e) l -> (b n) e l', b=B, n=N, e=E)
+            all_layer_comment_embeddings.append(layer_comment_embeddings)
+
+            # Attention mechanism and reduce
+            layer_episode_embeddings = self.attn_fn(layer_comment_embeddings, layer_comment_embeddings, layer_comment_embeddings)
+            layer_episode_embeddings = reduce(layer_episode_embeddings, 'b e l -> b l', 'max')
             
-    #         # Use the specific linear layer for this transformer layer
-    #         layer_episode_embeddings = self.layer_linear[layer_idx](layer_episode_embeddings)
+            # Use the specific linear layer for this transformer layer
+            layer_episode_embeddings = self.layer_linear[layer_idx](layer_episode_embeddings)
             
-    #         # Add a layer dimension
-    #         layer_episode_embeddings = rearrange(layer_episode_embeddings, 'b d -> 1 b d')
-    #         all_layer_episode_embeddings.append(layer_episode_embeddings)
+            # Add a layer dimension
+            layer_episode_embeddings = rearrange(layer_episode_embeddings, 'b d -> 1 b d')
+            all_layer_episode_embeddings.append(layer_episode_embeddings)
 
-    #     # Concatenate all layers along the first dimension
-    #     all_layer_episode_embeddings = torch.cat(all_layer_episode_embeddings, dim=0)
+        # Concatenate all layers along the first dimension
+        all_layer_episode_embeddings = torch.cat(all_layer_episode_embeddings, dim=0)
 
-    #     return all_layer_episode_embeddings, all_layer_comment_embeddings
+        return all_layer_episode_embeddings, all_layer_comment_embeddings
 
     def forward(self, data):
         """Calculates a fixed-length feature vector for a batch of episode samples.

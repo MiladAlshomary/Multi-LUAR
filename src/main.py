@@ -82,7 +82,7 @@ def main(params):
         logger=logger,
         callbacks=[checkpoint_callback],
         accelerator='gpu',  # Specify GPU as the accelerator
-        devices=[2],  # Use appropriate GPU count
+        devices=[0],  # Use appropriate GPU count
         strategy='dp' if len(params.gpus) > 1 else None,
         precision=params.precision,
         limit_val_batches=limit_val_batches,
