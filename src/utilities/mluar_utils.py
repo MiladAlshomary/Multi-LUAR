@@ -19,7 +19,6 @@ def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size 
     pad = tokenizer.pad_token_id
     eos = tokenizer.eos_token_id
 
-    max_length = max_length
     num_episods = int(max_length/episod_length)
     num_batches = int(len(sentences)/batch_size)
     sentences_embeddings = []
@@ -45,7 +44,7 @@ def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size 
 
             input_ids = torch.cat((input_ids, torch.where(true_lengths >= episod_length, eos, pad).unsqueeze(2)), 2)
             attention_mask = torch.cat((attention_mask, torch.where(true_lengths >= episod_length, 1, 0).unsqueeze(2)), 2)
-            
+
             input_ids = F.pad(input_ids, (1, 0), 'constant', cls)
             attention_mask = F.pad(attention_mask, (1, 0), 'constant', 1)
 
