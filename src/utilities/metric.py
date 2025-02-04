@@ -6,6 +6,8 @@
 import numpy as np
 import torch
 from sklearn.metrics import pairwise_distances
+from sklearn.metrics.pairwise import cosine_similarity
+import pickle as pkl
 
 # def compute_metrics(
 #     queries: torch.cuda.FloatTensor, 
@@ -106,6 +108,8 @@ def compute_metrics(
     # Compute metrics using the updated ranking function
     metric_scores = {}
     metric_scores.update(ranking(q_list, t_list, query_authors, target_authors))
+
+    #save_predictions(q_list, t_list, query_authors, target_authors)
     
     return metric_scores
 
@@ -162,6 +166,31 @@ def compute_metrics(
 
 #     return return_dict
 
+def save_predictions(queries, 
+            targets,
+            query_authors, 
+            target_authors, 
+            metric='cosine',
+):
+    num_queries, num_layers, _ = queries.shape
+    num_targets, _, _ = targets.shape
+
+    all_dists = []
+    for layer in range(num_layers):
+        # Compute cosine similarity for the current layer
+        layer_dist = cosine_similarity(queries[:, layer, :], Y=targets[:, layer, :])
+        # Add the cosine similarities of this layer to the overall similarity matrix
+        all_dists.append(layer_dist)
+
+
+    #same_author_idx = [(i, j) for i, a1 in enumerate(query_authors) for j, a2 in enumerate(target_authors) if a1==a2]
+    #print(same_author_idx)
+    pkl.dump({
+        'dist_layers': all_dists,
+        'query_authors': query_authors,
+        'target_authors': target_authors
+    }, open('./layer_distances.pkl', 'wb'))
+    
 def ranking(queries, 
             targets,
             query_authors, 

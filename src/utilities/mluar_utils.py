@@ -156,7 +156,7 @@ def load_aa_data(data_path, groundtruth_path):
 
     return all_df, candidates_df, queries_df
 
-def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, layer):
+def extract_sig_pairs_for_layer(texts1, texts2, muti_luar_layers_sims, layer):
     zscore_matrix = zscore(muti_luar_layers_sims, axis=0)
     pairs_of_sim_index = []
     for i in range(muti_luar_layers_sims.shape[0]):
@@ -164,8 +164,8 @@ def extract_sig_pairs_for_layer(hiatus_data_texts, muti_luar_layers_sims, layer)
             zscore_vector = zscore_matrix[:, i, j]
             if zscore_vector[layer] > 1.5:
                 # Extract the two texts, and their similarities across the n layers
-                author1_text = hiatus_data_texts[i]
-                author2_text = hiatus_data_texts[j]
+                author1_text = texts1[i]
+                author2_text = texts2[j]
                 pairs_of_sim_index.append((author1_text, author2_text, zscore_vector, muti_luar_layers_sims[:, i, j]))
                 
     return pairs_of_sim_index

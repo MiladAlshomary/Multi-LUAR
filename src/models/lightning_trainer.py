@@ -189,7 +189,8 @@ class LightningTrainer(pt.LightningModule, ABC):
         else:
             queries, targets = get_dataset(self.params, split="test")
 
-        # subset_indices = list(range(100))
+        # print(len(queries))
+        # subset_indices = list(range(5000))
         # queries = Subset(queries, subset_indices)
         # targets = Subset(targets, subset_indices)
 
@@ -301,7 +302,6 @@ class LightningTrainer(pt.LightningModule, ABC):
                 the dicts have the keys: 'test_loss', 'ground_truth' and 'test_embedding'.
         """
         logs = {}
-
         metrics = M.compute_metrics(outputs[0], outputs[1], 'test')
 
         for k, v in metrics.items():
