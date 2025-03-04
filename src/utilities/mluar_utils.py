@@ -13,7 +13,7 @@ import pandas as pd
 import torch.nn.functional as F
 
 
-def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size = 8, is_multi_luar=False, episod_length=32):
+def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size = 8, is_multi_luar=False, episod_length=30):
     
     cls = tokenizer.cls_token_id
     pad = tokenizer.pad_token_id
@@ -33,9 +33,12 @@ def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size 
                 add_special_tokens=False
             )
 
+            #print(tokenized_text["input_ids"].shape)
+            
+            real_batch_size = tokenized_text["input_ids"].shape[0]
             # Reshape the inputs into b, episode_length, 32
-            tokenized_text["input_ids"] = tokenized_text["input_ids"].reshape(batch_size, num_episods, -1)
-            tokenized_text["attention_mask"] = tokenized_text["attention_mask"].reshape(batch_size, num_episods, -1)
+            tokenized_text["input_ids"] = tokenized_text["input_ids"].reshape(real_batch_size, num_episods, -1)
+            tokenized_text["attention_mask"] = tokenized_text["attention_mask"].reshape(real_batch_size, num_episods, -1)
 
             # Add cls token to all input_ids
             input_ids = tokenized_text["input_ids"]
@@ -51,6 +54,8 @@ def get_luar_embeddings(sentences, model, tokenizer, max_length=128, batch_size 
             tokenized_text["input_ids"] = input_ids
             tokenized_text["attention_mask"] = attention_mask
 
+            #print(input_ids.shape)
+            #print(attention_mask.shape)
 
             out = model(**tokenized_text)
             if is_multi_luar:
@@ -97,15 +102,15 @@ def compute_distances(x, y, layer=None):
         layer_dist = cosine_distances(x[:, layer, :], y[:, layer, :])
         return layer_dist
 
-def compute_mrr(sim_matrix, labels):
+def compute_mrr(sim_matrix, q_labels, t_labels):
     mrr_scores = []
     for idx, sen_similarities in enumerate(sim_matrix):
-        sen_label = labels[idx]
-        positive_sentences_indices = np.where(np.array(labels) == sen_label)[0]
-        if len(positive_sentences_indices) == 1:
-            continue
+        sen_label = q_labels[idx]
+        positive_sentences_indices = np.where(np.array(t_labels) == sen_label)[0]
+        # if len(positive_sentences_indices) == 1:
+        #     continue
         ranked_sentences = np.argsort(sen_similarities)[::-1].tolist()
-        mrr_scores.append(np.max([1/(ranked_sentences.index(i)+1) for i in positive_sentences_indices if i !=idx]))
+        mrr_scores.append(np.max([1/(ranked_sentences.index(i)+1) for i in positive_sentences_indices]))
     avg_mrr_score = round(np.mean(mrr_scores), 3)
     return avg_mrr_score
 

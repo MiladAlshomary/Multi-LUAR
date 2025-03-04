@@ -8,12 +8,14 @@ import argparse
 from src.datasets.amazon_dataset import AmazonDataset
 from src.datasets.reddit_dataset import RedditDataset
 from src.datasets.short_stories_dataset import Short_Stories_Dataset
+from src.datasets.hrs_dataset import HRS_Dataset
 
 DNAME_TO_CLASS = {
     'iur_dataset': RedditDataset,
     'raw_all': RedditDataset,
     'raw_amazon': AmazonDataset,
     'pan_paragraph': Short_Stories_Dataset,
+    "hrs": HRS_Dataset
 }
 
 def get_dataset(

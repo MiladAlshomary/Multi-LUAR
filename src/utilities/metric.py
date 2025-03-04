@@ -109,7 +109,7 @@ def compute_metrics(
     metric_scores = {}
     metric_scores.update(ranking(q_list, t_list, query_authors, target_authors))
 
-    #save_predictions(q_list, t_list, query_authors, target_authors)
+    save_predictions(q_list, t_list, query_authors, target_authors)
     
     return metric_scores
 
@@ -189,7 +189,7 @@ def save_predictions(queries,
         'dist_layers': all_dists,
         'query_authors': query_authors,
         'target_authors': target_authors
-    }, open('./layer_distances.pkl', 'wb'))
+    }, open('../data/significant-pairs-analysis/layer_distances.pkl', 'wb'))
     
 def ranking(queries, 
             targets,
