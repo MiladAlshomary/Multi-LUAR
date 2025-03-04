@@ -61,6 +61,7 @@ class HRS_Dataset(RetrievalDataset):
             self.author_clm_name = params.c_author_clm_name
 
 
+        # we need this because we are returning author-labels as a tensor which should be integer not strings
         self.authorId2Int = {}
         self.load_groundtruth(os.path.join(self.dataset_path, self.gt_path))
         self.load_data(os.path.join(self.dataset_path, self.file_name))
@@ -98,7 +99,7 @@ class HRS_Dataset(RetrievalDataset):
             self.int2AuthorId = {x[1]:x[0] for x in self.authorId2Int.items()}
 
             # keep only candidate authors that are the query ones
-            #self.data = self.data[self.data.authorID.isin(query_authors)]
+            self.data = self.data[self.data.authorID.isin(query_authors)]
         else:
             self.authorId2Int = {x:i for i, x in enumerate(self.data['authorID'].unique())}
             self.int2AuthorId = {x[1]:x[0] for x in self.authorId2Int.items()}
@@ -113,7 +114,8 @@ class HRS_Dataset(RetrievalDataset):
         
         if self.split == "test":
             author_data = self.data.iloc[index].to_dict()
-            author_data[self.text_key] = [chunk for text in author_data[self.text_key] for chunk in split_text(text, avg_words=32)]
+            # Split each text of the author into chunks, each of a round about token_max_length tokens
+            author_data[self.text_key] = [chunk for text in author_data[self.text_key] for chunk in split_text(text, avg_words=self.params.token_max_length)]
             #print(len(author_data[self.text_key]))
             #print(author_data[self.text_key][0])
             
@@ -126,9 +128,11 @@ class HRS_Dataset(RetrievalDataset):
             )
             data = self.reformat_tokenized_inputs(tokenized_episode)
             data = [d.reshape(1, -1, self.params.token_max_length) for d in data]
+
             if self.is_queries:
                 author = torch.tensor([self.authorId2Int[author_data['authorID']] for _ in range(self.num_sample_per_author)])
             else:
+                # Labels for candidate authors should be mapped to their correspoinding query authors if they have
                 author = torch.tensor([self.authorId2Int[self.c_to_q_map[author_data['authorID']]] for _ in range(self.num_sample_per_author)])
         else:
             text = []
