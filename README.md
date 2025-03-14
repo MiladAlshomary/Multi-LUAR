@@ -1,168 +1,178 @@
-# Learning Universal Authorship Representations
+Here's the updated README with the **Experiments with Baseline** section added:  
 
-This is the official repository for the EMNLP 2021 paper ["Learning Universal Authorship Representations"](https://aclanthology.org/2021.emnlp-main.70/). The paper studies whether the authorship representations learned in one domain transfer to another. To do so, we conduct the first large-scale study of cross-domain transfer for authorship verification considering zero-shot transfers involving three disparate domains: Amazon Reviews, fanfiction short stories, and Reddit comments.
+---
 
-## HuggingFace
-LUAR model variations are now available on HuggingFace! They can be found [here](https://huggingface.co/collections/rrivera1849/luar-65133328387d403b2e6f33a2).
+#   MultiLUAR
 
-## Installation
-Run the following commands to create an environment and install all the required packages:
+This repository accompanies the paper **"Layered Insights: Generalizable Analysis of Authorial Style by Leveraging All Transformer Layers"**. The study introduces a novel approach to the authorship attribution task by utilizing linguistic representations learned at different layers of pre-trained transformer-based models. Our method is tested across three datasets and compared against a state-of-the-art baseline in both in-domain and out-of-domain settings. The results demonstrate that leveraging multiple transformer layers enhances the robustness of authorship attribution models, particularly for out-of-domain data, achieving new state-of-the-art performance.  
+
+## Installation  
+Execute the following commands to create a virtual environment and install the necessary dependencies:  
+
 ```bash
-python3 -m venv vluar
-. ./vluar/bin/activate
+python3 -m venv multiluar
+. ./multiluar/bin/activate
 pip3 install -U pip
 pip3 install -r requirements.txt
-```
+```  
 
-## Downloading the Data and Pre-trained Weights
+## Configuring the Python Path  
 
-Once you've installed the environment, execute the following commands to download the SBERT pre-trained weights, download and preprocess the data:
+After cloning the repository, update the Python path to point to the project's directory:  
 
-### Pre-trained Weights
+```bash
+./export PYTHONPATH="<path to MultiLUAR>:$PYTHONPATH"
+```  
 
-Follow the instructions [here](https://git-lfs.github.com) to install git lfs.
+## Downloading Data and Pre-trained Weights  
+
+Once the environment is set up, run the following commands to download the SBERT pre-trained weights and preprocess the datasets:  
+
+### Pre-trained Weights  
+
+First, install Git Large File Storage (LFS) by following the instructions [here](https://git-lfs.github.com). Then, download the weights using:  
 
 ```bash
 ./scripts/download_sbert_weights.sh
-```
+```  
 
-### Reddit
+### Reddit Dataset  
 
-Reddit has changed their [Data API terms](https://www.redditinc.com/policies/data-api-terms) to disallow the use of user-data to train machine learning models unless permission is explicitly granted by the original poster. 
-As such, we're only providing the comment identifiers of the posts used to train our models:
+Reddit has updated its [Data API terms](https://www.redditinc.com/policies/data-api-terms), prohibiting the use of user-generated data for machine learning unless explicit permission is granted. As a result, we provide only the comment identifiers used for training our models:  
 
-|               Dataset Name              |                                     Download Link                                     |
-|:---------------------------------------:|:-------------------------------------------------------------------------------------:|
-| [IUR](https://arxiv.org/abs/1910.04979) | https://cs.jhu.edu/~noa/data/reddit.tar.gz                                            |
-| [MUD](https://arxiv.org/abs/2105.07263) | https://drive.google.com/file/d/16YgK62cpe0NC7zBvSF_JxosOozG-wxou/view?usp=drive_link |
+| Dataset Name | Download Link |  
+|-------------|--------------|  
+| [MUD](https://arxiv.org/abs/2105.07263) | [Google Drive Link](https://drive.google.com/file/d/16YgK62cpe0NC7zBvSF_JxosOozG-wxou/view?usp=drive_link) |  
 
-### Amazon
+### Amazon Dataset  
 
-The amazon data must be requested from [here](https://nijianmo.github.io/amazon/index.html#files) (the "raw review data" (34gb) dataset). Once the data has been downloaded, place the files under "./data/raw_amazon" and run the following command to pre-process the data:
+The Amazon dataset must be requested from [this source](https://nijianmo.github.io/amazon/index.html#files) under the "raw review data" (34GB) section. After downloading, move the files to `./data/raw_amazon` and execute the preprocessing script:  
 
 ```bash
 ./scripts/preprocess_amazon_data.sh
-```
+```  
 
-### Fanfiction
+### Fanfiction Dataset  
 
-The fanfiction data must be requested from [here](https://zenodo.org/record/3724096#.YT942y1h1pQ). Once the data has been downloaded, place the data.jsonl and truth.jsonl files from the large dataset under "./data/pan_paragraph". Then, run the following command to pre-process the data:
+The fanfiction dataset can be obtained from [this repository](https://zenodo.org/record/3724096#.YT942y1h1pQ). Once downloaded, place `data.jsonl` and `truth.jsonl` from the large dataset into `./data/pan_paragraph`, then run the preprocessing script:  
 
 ```bash
 ./scripts/preprocess_fanfiction_data.sh
-```
+```  
 
-## Path Configuration
-The application paths can be changed by modifying the variables in `file_config.ini`:
-- **output_path**: Where the experiment results and model checkpoints will be saved. (Default ./output)
-- **data_path**: Where the datasets should be stored. (Default ./data)
-- **transformer_path**: Where the pretrained model weights for SBERT should be stored. (Default ./pretrained_weights)
+## Path Configuration  
 
-We strongly encourage you to set your own paths.
+Modify the paths in `file_config.ini` to customize storage locations:  
+- **output_path**: Directory for experiment results and model checkpoints (default: `./output`).  
+- **data_path**: Location for dataset storage (default: `./data`).  
+- **transformer_path**: Path for storing SBERT pre-trained weights (default: `./pretrained_weights`).  
 
-## Reproducing Results
+We recommend setting custom paths according to your system.  
 
-The commands for reproducing each table of results within the paper are found under "./scripts/reproduce/table_N.sh". 
+## Reproducing Results  
 
-## Training
+To replicate the results presented in the paper, use the scripts in the `./scripts/reproduce/` directory, with file names corresponding to each table (e.g., `table_N.sh`).  
 
-The commands to train the SBERT model are shown below. There are two types of training: single domain and multi-domain. In short, single-domain models are trained on one dataset while multi-domain models are trained on two datasets. 
+## Training  
 
-The dataset names available for training are:
-* iur_dataset - The Reddit dataset from [here](https://aclanthology.org/D19-1178/).
-* raw_all - The Reddit Million User Dataset (MUD).
-* raw_amazon - The Amazon Reviews dataset.
-* pan_paragraph - The PAN Short Stories dataset.
+We provide training commands for **single-domain** and **multi-domain** models.  
+- **Single-domain models** are trained on a single dataset.  
+- **Multi-domain models** utilize two datasets for training.  
 
+### Available Datasets  
+- `raw_all` - Reddit Million User Dataset (MUD).  
+- `raw_amazon` - Amazon Reviews dataset.  
+- `pan_paragraph` - PAN Short Stories dataset.  
 
-## Training Single-Domain Models
+### Training Single-Domain Models  
 
-#### Reddit Comments
+#### Reddit Comments  
 ```bash
-python main.py --dataset_name raw_all --do_learn --validate --gpus 4 --experiment_id reddit_model
-```
-#### Amazon Reviews
+python main.py --dataset_name raw_all --do_learn --validate --gpus 0 --experiment_id reddit_model --approach multiluar
+```  
+
+#### Amazon Reviews  
 ```bash
-python main.py --dataset_name raw_amazon --do_learn --validate --experiment_id amazon_model
-```
-#### Fanfiction Stories
+python main.py --dataset_name raw_amazon --do_learn --validate --gpus 0 --experiment_id amazon_model --approach multiluar
+```  
+
+#### Fanfiction Stories  
 ```bash
-python main.py --dataset_name pan_paragraph --do_learn --validate --experiment_id fanfic_model
-```
+python main.py --dataset_name pan_paragraph --do_learn --validate --gpus 0 --experiment_id fanfic_model --approach multiluar
+```  
 
-## Training Multi-Domain Models
+### Training Multi-Domain Models  
 
-### Reddit Comments + Amazon Reviews
+#### Reddit Comments + Amazon Reviews  
 ```bash
-python main.py --dataset_name raw_all+raw_amazon --do_learn --validate --gpus 4 --experiment_id reddit_amazon_model
-```
-### Amazon Reviews + Fanfiction Stories
+python main.py --dataset_name raw_all+raw_amazon --do_learn --validate --gpus 0 --experiment_id reddit_amazon_model --approach multiluar
+```  
+
+#### Amazon Reviews + Fanfiction Stories  
 ```bash
-python main.py --dataset_name raw_amazon+pan_paragraph --do_learn --validate --gpus 4 --experiment_id amazon_stories_model
-```
-#### Reddit Comments + Fanfiction Stories
+python main.py --dataset_name raw_amazon+pan_paragraph --do_learn --validate --gpus 0 --experiment_id amazon_stories_model --approach multiluar
+```  
+
+#### Reddit Comments + Fanfiction Stories  
 ```bash
-python main.py --dataset_name raw_all+pan_paragraph --do_learn --validate --gpus 4 --experiment_id reddit_stories_model
-```
+python main.py --dataset_name raw_all+pan_paragraph --do_learn --validate --gpus 0 --experiment_id reddit_stories_model --approach multiluar
+```  
 
-## Evaluating
-The commands to evaluate on each dataset is shown below. Replace <experiment_id> with the experiment identifier that was used during training. For example, if you followed the commands for single domain training shown above, valid experiment identifiers would be: reddit_model, amazon_model and fanfic_model. 
+## Evaluation  
 
-### Reddit Comments
+To evaluate a trained model, use the following commands. Replace `<experiment_id>` with the identifier assigned during training (e.g., `reddit_model`, `amazon_model`, or `fanfic_model`).  
+
+### Reddit Comments  
 ```bash
-python main.py --dataset_name raw_all --evaluate --experiment_id <experiment_id> --load_checkpoint
-```
+python main.py --dataset_name raw_all --evaluate --experiment_id <experiment_id> --load_checkpoint --approach multiluar
+```  
 
-### Amazon Reviews
+### Amazon Reviews  
 ```bash
-python main.py --dataset_name raw_amazon --evaluate --experiment_id <experiment_id> --load_checkpoint
-```
+python main.py --dataset_name raw_amazon --evaluate --experiment_id <experiment_id> --load_checkpoint --approach multiluar
+```  
 
-### Fanfiction Stories
+### Fanfiction Stories  
 ```bash
-python main.py --dataset_name pan_paragraph --evaluate --experiment_id <experiment_id> --load_checkpoint
-```
+python main.py --dataset_name pan_paragraph --evaluate --experiment_id <experiment_id> --load_checkpoint --approach multiluar
+```  
 
-## Contributing
+## Experiments with Baseline  
 
-To contribute to LUAR, just send us a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests).
-When sending a request, make `main` the destination branch on the LUAR repository.
+To run experiments with the **baseline LUAR** model for both single-domain and multi-domain scenarios, simply change the `--approach` flag to `'baseline'`.  
 
-## Citation
+### Training Single-Domain Models with Baseline  
 
-If you use our code base in your work, please consider citing:
+#### Reddit Comments  
+```bash
+python main.py --dataset_name raw_all --do_learn --validate --gpus 0 --experiment_id reddit_baseline --approach baseline
+```  
 
-```
-@inproceedings{uar-emnlp2021,
-  author    = {Rafael A. Rivera Soto and Olivia Miano and Juanita Ordonez and Barry Chen and Aleem Khan and Marcus Bishop and Nicholas Andrews},
-  title     = {Learning Universal Authorship Representations},
-  booktitle = {EMNLP},
-  year      = {2021},
-}
-```
+#### Amazon Reviews  
+```bash
+python main.py --dataset_name raw_amazon --do_learn --validate --gpus 0 --experiment_id amazon_baseline --approach baseline
+```  
 
-## Contact
+#### Fanfiction Stories  
+```bash
+python main.py --dataset_name pan_paragraph --do_learn --validate --gpus 0 --experiment_id fanfic_baseline --approach baseline
+```  
 
-For questions about our paper or code, please contact [Rafael A. Rivera Soto](riverasoto1@llnl.gov).
+### Training Multi-Domain Models with Baseline  
 
-## Acknowledgements
+#### Reddit Comments + Amazon Reviews  
+```bash
+python main.py --dataset_name raw_all+raw_amazon --do_learn --validate --gpus 0 --experiment_id reddit_amazon_baseline --approach baseline
+```  
 
-Here's a list of the people who have contributed to this work: 
-- [Olivia Miano](https://github.com/omiano)
-- [Juanita Ordonez](https://github.com/hot-cheeto)
-- Barry Chen
-- [Aleem Khan](https://aleemkhan62.github.io/)
-- [Nicholas Andrews](https://www.cs.jhu.edu/~noa/)
-- Marcus Bishop
+#### Amazon Reviews + Fanfiction Stories  
+```bash
+python main.py --dataset_name raw_amazon+pan_paragraph --do_learn --validate --gpus 0 --experiment_id amazon_stories_baseline --approach baseline
+```  
 
-## License
+#### Reddit Comments + Fanfiction Stories  
+```bash
+python main.py --dataset_name raw_all+pan_paragraph --do_learn --validate --gpus 0 --experiment_id reddit_stories_baseline --approach baseline
+```  
 
-LUAR is distributed under the terms of the Apache License (Version 2.0).
-
-All new contributions must be made under the Apache-2.0 licenses.
-
-See LICENSE and NOTICE for details.
-
-SPDX-License-Identifier: Apache-2.0
-
-LLNL-CODE-844702
+By adjusting the `--approach` flag, you can compare our **MultiLUAR** approach with the baseline model across different datasets and scenarios.
