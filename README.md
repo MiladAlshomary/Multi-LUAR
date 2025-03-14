@@ -1,7 +1,3 @@
-Here's the updated README with the **Experiments with Baseline** section added:  
-
----
-
 #   MultiLUAR
 
 This repository accompanies the paper **"Layered Insights: Generalizable Analysis of Authorial Style by Leveraging All Transformer Layers"**. The study introduces a novel approach to the authorship attribution task by utilizing linguistic representations learned at different layers of pre-trained transformer-based models. Our method is tested across three datasets and compared against a state-of-the-art baseline in both in-domain and out-of-domain settings. The results demonstrate that leveraging multiple transformer layers enhances the robustness of authorship attribution models, particularly for out-of-domain data, achieving new state-of-the-art performance.  
