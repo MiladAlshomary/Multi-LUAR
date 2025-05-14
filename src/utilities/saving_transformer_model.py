@@ -217,16 +217,11 @@ class MemoryEfficientAttention(nn.Module):
 
 
 class MultiLUARs(PreTrainedModel):
-    config_class = LUARConfig
+    config_class = MultiLUARsConfig
     
     def __init__(self, config):
         super().__init__(config)
         self.create_transformer()
-        # self.attn_fn = SelfAttention(
-        #     config.use_memory_efficient_attention,
-        #     config.q_bucket_size,
-        #     config.k_bucket_size,
-        # )
 
         self.attn_fn = SelfAttention()
         
@@ -315,51 +310,20 @@ class MultiLUARs(PreTrainedModel):
             
         return all_layer_episode_embeddings
 
-    def rearrange_inputs(self, input_ids, attention_mask):
-
-        seq_length = input_ids.shape[1]
-        batch_size = input_ids.shape[0]
-
-        if seq_length % 32 != 0:
-            new_dimension = math.ceil(seq_length/32) * 32
-            # Expanding the input_ids to be multiplication of 32
-            last_clm = input_ids[:, -1].unsqueeze(1)
-            last_clm_expanded = einops.repeat(last_clm, 'n m -> n (repeat m)', repeat=new_dimension-seq_length)
-            input_ids = torch.cat([input_ids, last_clm_expanded], axis=1)
-
-            # Expanding the attention_mask to be multiplication of 32
-            last_clm = attention_mask[:, -1].unsqueeze(1)
-            last_clm_expanded = einops.repeat(last_clm, 'n m -> n (repeat m)', repeat=new_dimension-seq_length)
-            attention_mask = torch.cat([attention_mask, last_clm_expanded], axis=1)
-
-        seq_length = input_ids.shape[1]
-        batch_size = input_ids.shape[0]
-        
-        episode_length = int(seq_length/32)
-        
-        if episode_length == 0:
-            input_ids = input_ids.unsqueeze(1)
-            attention_mask = attention_mask.unsqueeze(1)
-        else:
-            input_ids = input_ids.reshape(batch_size, episode_length, -1)
-            attention_mask = attention_mask.reshape(batch_size, episode_length, -1)
-            
-        return input_ids, attention_mask
         
     def forward(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0, average_layers=False, **kwargs):
         """Calculates a fixed-length feature vector for a batch of episode samples.
         """
         if self.sentence_transformer_support:
-            input_ids, attention_mask = self.rearrange_inputs(input_ids, attention_mask)
-        
-        output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size, average_layers=average_layers)
+            input_ids = input_ids.unsqueeze(1)
+            attention_mask = attention_mask.unsqueeze(1)
 
-        if self.sentence_transformer_support:
-            output = rearrange(output, 'l b e-> b l e')
-            return output, output, output
-        
+            output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size)
+            rearranged_output = [x.unsqueeze(1) for x in output]
+            return rearranged_output, rearranged_output, rearranged_output
+            
         else:
-            return output
+            output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size, average_layers=average_layers)
 
 class LUAR(PreTrainedModel):
     """Defines the LUAR model.
@@ -375,7 +339,8 @@ class LUAR(PreTrainedModel):
             config.k_bucket_size,
         )
         self.linear = nn.Linear(self.hidden_size, config.embedding_size)
-
+        self.sentence_transformer_support = config.sentence_transformer_support
+        
     def create_transformer(self):
         """Creates the Transformer backbone.
         """
@@ -439,13 +404,61 @@ class LUAR(PreTrainedModel):
             return episode_embeddings, outputs["attentions"]
 
         return episode_embeddings
-    
-    def forward(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0):
+
+    def rearrange_inputs(self, input_ids, attention_mask):
+
+        seq_length = input_ids.shape[1]
+        batch_size = input_ids.shape[0]
+
+        if seq_length % 32 != 0:
+            new_dimension = math.ceil(seq_length/32) * 32
+            # Expanding the input_ids to be multiplication of 32
+            last_clm = input_ids[:, -1].unsqueeze(1)
+            last_clm_expanded = einops.repeat(last_clm, 'n m -> n (repeat m)', repeat=new_dimension-seq_length)
+            input_ids = torch.cat([input_ids, last_clm_expanded], axis=1)
+
+            # Expanding the attention_mask to be multiplication of 32
+            last_clm = attention_mask[:, -1].unsqueeze(1)
+            last_clm_expanded = einops.repeat(last_clm, 'n m -> n (repeat m)', repeat=new_dimension-seq_length)
+            attention_mask = torch.cat([attention_mask, last_clm_expanded], axis=1)
+
+        seq_length = input_ids.shape[1]
+        batch_size = input_ids.shape[0]
+        
+        episode_length = int(seq_length/32)
+        
+        if episode_length == 0:
+            input_ids = input_ids.unsqueeze(1)
+            attention_mask = attention_mask.unsqueeze(1)
+        else:
+            input_ids = input_ids.reshape(batch_size, episode_length, -1)
+            attention_mask = attention_mask.reshape(batch_size, episode_length, -1)
+            
+        return input_ids, attention_mask
+        
+    def forward(self, input_ids, attention_mask, output_attentions=False, document_batch_size=0, **kwargs):
         """Calculates a fixed-length feature vector for a batch of episode samples.
         """
-        output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size)
 
-        return output
+        if self.sentence_transformer_support:
+            #input_ids, attention_mask = self.rearrange_inputs(input_ids, attention_mask)
+             # outputs = self.transformer(
+            #     input_ids=input_ids,
+            #     attention_mask=attention_mask,
+            #     return_dict=True,
+            #     output_hidden_states=True,
+            #     output_attentions=output_attentions,
+            # )
+            # return outputs
+            
+            input_ids = input_ids.unsqueeze(1)
+            attention_mask = attention_mask.unsqueeze(1)
+            
+            output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size)
+            return [output.unsqueeze(1)], [output.unsqueeze(1)], [output.unsqueeze(1)]
+        else:
+            output = self.get_episode_embeddings(input_ids, attention_mask, output_attentions, document_batch_size)
+            return output
 
 if __name__ == '__main__':
 
