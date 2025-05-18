@@ -17,6 +17,7 @@ from pytorch_metric_learning.distances import CosineSimilarity
 from torch.utils.data import DataLoader, Subset
 
 from src.datasets.multidomain_dataset import Multidomain_Dataset
+from src.datasets.multidomain_three_dataset import Multidomain_Three_Dataset
 from src.datasets.utils import get_dataset
 from src.utilities import metric as M
 from src.utilities.file_utils import Utils as utils
@@ -36,6 +37,9 @@ class LightningTrainer(pt.LightningModule, ABC):
     def __init__(self, params):
         super().__init__()
         self.params = params
+
+        self.validation_outputs = []  # Stores outputs for each validation dataloader
+        self.test_outputs = []  
     
         self.experiment_log_filename = os.path.join(
             utils.output_path, 
@@ -124,12 +128,17 @@ class LightningTrainer(pt.LightningModule, ABC):
         """Returns the training DataLoader.
         """        
         if "+" in self.params.dataset_name:
-            train_dataset = Multidomain_Dataset(self.params, "train")
+            dataset_names = self.params.dataset_name.split("+")
+            num_datasets = len(dataset_names)
+            if num_datasets == 2:
+                train_dataset = Multidomain_Dataset(self.params, "train")
+            elif num_datasets == 3:
+                train_dataset = Multidomain_Three_Dataset(self.params, "train")
         else:
             train_dataset = get_dataset(self.params, split="train")
 
-        # subset_indices = list(range(100))
-        # train_subset = Subset(train_dataset, subset_indices)
+        # subset_indices = list(range(50))
+        # train_dataset = Subset(train_dataset, subset_indices)
 
         data_loader = DataLoader(
             train_dataset,
@@ -150,10 +159,20 @@ class LightningTrainer(pt.LightningModule, ABC):
         batch_size = 1 if self.params.dataset_name in ["raw_amazon", "pan_paragraph"] else self.params.batch_size
         
         if "+" in self.params.dataset_name:
-            queries = Multidomain_Dataset(self.params, "validation", is_queries=True)
-            targets = Multidomain_Dataset(self.params, "validation", is_queries=False)
+            dataset_names = self.params.dataset_name.split("+")
+            num_datasets = len(dataset_names)
+            if num_datasets == 2:
+                queries = Multidomain_Dataset(self.params, "validation", is_queries=True)
+                targets = Multidomain_Dataset(self.params, "validation", is_queries=False)
+            elif num_datasets == 3:
+                queries = Multidomain_Three_Dataset(self.params, "validation", is_queries=True)
+                targets = Multidomain_Three_Dataset(self.params, "validation", is_queries=False)
         else:
             queries, targets = get_dataset(self.params, split="validation")
+
+        # subset_indices = list(range(100))
+        # queries= Subset(queries, subset_indices)
+        # targets = Subset(targets, subset_indices)
 
         print("VALLLLLLLLLLLLLLLLLLLLL")
         data_loaders = [
@@ -181,11 +200,17 @@ class LightningTrainer(pt.LightningModule, ABC):
 
     def test_dataloader(self):
         # to counteract different episode sizes during validation / testing
-        batch_size = 1 if self.params.dataset_name in ["raw_amazon", "pan_paragraph"] else self.params.batch_size
+        batch_size = 1 if self.params.dataset_name in ["raw_amazon", "pan_paragraph", "hrs"] else self.params.batch_size
         
         if "+" in self.params.dataset_name:
-            queries = Multidomain_Dataset(self.params, "test", is_queries=True)
-            targets = Multidomain_Dataset(self.params, "test", is_queries=False)
+            dataset_names = self.params.dataset_name.split("+")
+            num_datasets = len(dataset_names)
+            if num_datasets == 2:
+                queries = Multidomain_Dataset(self.params, "test", is_queries=True)
+                targets = Multidomain_Dataset(self.params, "test", is_queries=False)
+            elif num_datasets == 3:
+                queries = Multidomain_Three_Dataset(self.params, "test", is_queries=True)
+                targets = Multidomain_Three_Dataset(self.params, "test", is_queries=False)
         else:
             queries, targets = get_dataset(self.params, split="test")
 
@@ -224,16 +249,7 @@ class LightningTrainer(pt.LightningModule, ABC):
            functions.
         """
         labels = batch[-1].flatten()
-        
         all_layer_episode_embeddings, all_layer_comment_embeddings = self._model_forward(batch)
-
-        # if split_name != "":
-        #     return_dict = {
-        #         f"{split_name}embedding": all_layer_episode_embeddings[-1],
-        #         "ground_truth": labels,
-        #     }
-
-        #     return return_dict
 
         return_dict = {
                 f"{split_name}embedding": all_layer_episode_embeddings,
@@ -246,18 +262,33 @@ class LightningTrainer(pt.LightningModule, ABC):
         """Executes one training step.
         """
         return_dict = self._internal_step(batch, split_name="")
+        all_layer_episode_embeddings = return_dict["embedding"]
+        labels = return_dict["ground_truth"]
+        total_loss_episode = 0
+
+        for layer_idx, episode_embeddings in enumerate(all_layer_episode_embeddings):
+            loss_episode = self.loss(episode_embeddings, labels)
+            total_loss_episode += loss_episode
+
+        total_loss_episode /= len(all_layer_episode_embeddings)
+        self.log("loss", total_loss_episode, on_step=True, on_epoch=True, prog_bar=True)
+        return_dict['loss'] = total_loss_episode
         return return_dict
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
         """Executes one validation step.
         """
         return_dict = self._internal_step(batch, split_name="val_")
+        return_dict["dataloader_idx"] = dataloader_idx  # Store dataloader index
+        self.validation_outputs.append(return_dict)  # Store outputs
         return return_dict
 
     def test_step(self, batch, batch_idx, dataloader_idx):
         """Executes one test step.
         """
         return_dict = self._internal_step(batch, split_name="test_")
+        return_dict["dataloader_idx"] = dataloader_idx  # Store dataloader index
+        self.test_outputs.append(return_dict)  # Store outputs
         return return_dict
 
     def training_step_end(self, step_outputs):
@@ -275,7 +306,10 @@ class LightningTrainer(pt.LightningModule, ABC):
 
         return {"loss": total_loss_episode}
         
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
+        """Process accumulated validation outputs"""
+        if not self.validation_outputs:
+            return
         
         """Calculates metrics using the outputs from each validation step.
 
@@ -283,36 +317,64 @@ class LightningTrainer(pt.LightningModule, ABC):
             outputs (list): A list of lists of dicts with shape [2, num_batches] where 
                 the dicts have the keys: 'val_loss', 'ground_truth' and 'validation_embedding'.
         """
-        # Skip computing metrics for the validation sanity check
-        if len(outputs[0]) < 3:
-            return
+
+        # Split outputs into queries and targets based on dataloader_idx
+        queries_outputs = [o for o in self.validation_outputs if o["dataloader_idx"] == 0]
+        targets_outputs = [o for o in self.validation_outputs if o["dataloader_idx"] == 1]
+
+        if self.params.approach == "multiluar":
+            metrics = M.compute_metrics_multiluar(queries_outputs, targets_outputs, 'val')
+        else:
+            metrics = M.compute_metrics(queries_outputs, targets_outputs, 'val')
+
+        for k, v in metrics.items():
+            self.log(f'val_{k}', v, prog_bar=True, batch_size=self.params.batch_size)
         
-        metrics = M.compute_metrics(outputs[0], outputs[1], 'val')
+        self.validation_outputs.clear()  # Clear for next epoch
 
-        for k,v in metrics.items():
-            self.log('val_{}'.format(k), v, prog_bar=True, 
-                    batch_size = self.params.batch_size)
-
-    def test_epoch_end(self, outputs):
+    def on_test_epoch_end(self):
         """ Calculates metrics using the outputs from each test step.
 
         Args:
             outputs: A list of lists of dicts with shape [2, num_batches] where 
                 the dicts have the keys: 'test_loss', 'ground_truth' and 'test_embedding'.
         """
-        logs = {}
+        # logs = {}
 
-        metrics = M.compute_metrics(outputs[0], outputs[1], 'test')
+        # if self.params.approach == "multiluar":
+        #     metrics = M.compute_metrics_multiluar(outputs[0], outputs[1], 'test')
+        # else:
+        #     metrics = M.compute_metrics(outputs[0], outputs[1], 'test')
 
-        for k, v in metrics.items():
-            logs['test_{}'.format(k)] = v
-            self.log('test_{}'.format(k), logs['test_{}'.format(k)], 
-                    batch_size = self.params.batch_size)
+        # for k, v in metrics.items():
+        #     logs['test_{}'.format(k)] = v
+        #     self.log('test_{}'.format(k), logs['test_{}'.format(k)], 
+        #             batch_size = self.params.batch_size)
 
-        scores = utils.dict2string(logs, '{} version {}'.format(self.params.experiment_id, self.logger.version))
+        # scores = utils.dict2string(logs, '{} version {}'.format(self.params.experiment_id, self.logger.version))
+        # mode = 'a' if os.path.exists(self.experiment_log_filename) else 'w'
+
+        # with open(self.experiment_log_filename, mode) as f:
+        #     f.write(scores)
+
+        # print(scores)
+
+        queries_outputs = [o for o in self.test_outputs if o["dataloader_idx"] == 0]
+        targets_outputs = [o for o in self.test_outputs if o["dataloader_idx"] == 1]
+
+        if self.params.approach == "multiluar":
+            metrics = M.compute_metrics_multiluar(queries_outputs, targets_outputs, 'test')
+        else:
+            metrics = M.compute_metrics(queries_outputs, targets_outputs, 'test')
+
+        logs = {f'test_{k}': v for k, v in metrics.items()}
+        for k, v in logs.items():
+            self.log(k, v, batch_size=self.params.batch_size)
+        
+        # Write to experiment log file
+        scores = utils.dict2string(logs, f'{self.params.experiment_id} version {self.logger.version}')
         mode = 'a' if os.path.exists(self.experiment_log_filename) else 'w'
-
         with open(self.experiment_log_filename, mode) as f:
             f.write(scores)
-
-        print(scores)
+        
+        self.test_outputs.clear()

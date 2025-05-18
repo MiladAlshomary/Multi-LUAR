@@ -17,10 +17,16 @@ HUGGINGFACE_NEG_VALUE = -10000.
 class SelfAttention(nn.Module):
     """Implements Dot-Product Self-Attention as used in "Attention is all You Need".
     """
-    def __init__(self):
-        super(SelfAttention, self).__init__()
+    def __init__(self, d_model=768):
+        super().__init__()
+        self.layer_norm = nn.LayerNorm(d_model)  # Added LayerNorm
 
     def forward(self, k, q, v):
+        # Normalize inputs
+        k = self.layer_norm(k)
+        q = self.layer_norm(q)
+        v = self.layer_norm(v)
+
         d_k = q.size(-1)
         scores = torch.matmul(k, q.transpose(-2, -1)) / math.sqrt(d_k)
         p_attn = F.softmax(scores, dim=-1)

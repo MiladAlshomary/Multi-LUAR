@@ -59,6 +59,7 @@ class RetrievalDataset(Dataset):
         transformer_modelnames = {
             "roberta": "sentence-transformers/paraphrase-distilroberta-base-v1",
             "roberta_base": "roberta-base",
+            "modernbert": "answerdotai/ModernBERT-base",
         }
 
         # return os.path.join(utils.transformer_path, transformer_modelnames[self.params.model_type])

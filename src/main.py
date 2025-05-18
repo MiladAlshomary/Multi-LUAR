@@ -58,13 +58,13 @@ def main(params):
         version = "version_0" if params.version is None else params.version
         path = os.path.join(experiment_dir, params.log_dirname, version, 'checkpoints', '*.ckpt')
         print(path)
-        resume_from_checkpoint = glob.glob(path)[-1]
+        print(glob.glob(path))
+        resume_from_checkpoint = glob.glob(path)[0]
+
         print("Checkpoint: {}".format(resume_from_checkpoint))
 
         checkpoint = torch.load(resume_from_checkpoint)
         model.load_state_dict(checkpoint['state_dict'], strict=False)
-
-        last_linear_layer = model.layer_linear[-1]
 
     logger = TensorBoardLogger(experiment_dir, name=params.log_dirname, version=params.version)
     trainer = pt.Trainer(
@@ -73,8 +73,8 @@ def main(params):
         logger=logger,
         callbacks=[checkpoint_callback],
         accelerator='gpu',  # Specify GPU as the accelerator
-        devices=[1],  # Use appropriate GPU count
-        strategy='dp' if len(params.gpus) > 1 else None,
+        devices=params.gpus,  # Use appropriate GPU count
+        strategy='ddp' if len(params.gpus) > 1 else 'auto',
         precision=params.precision,
         limit_val_batches=limit_val_batches,
         check_val_every_n_epoch=params.validate_every if params.validate else 1,

@@ -16,6 +16,9 @@ def create_argument_parser(additional_args=None):
     )
 
     ###### MISC parameters ##########
+    parser.add_argument("--approach", type=str, default="multiluar",
+                        choices=["multiluar", "baseline"],
+                        help="Specifies which approach to use between multiluar or baseline")
     parser.add_argument("--dataset_name", type=str, default="raw_all",
                         help="Specifies which dataset to use, see README for options")
     parser.add_argument("--experiment_id", type=str, default="{}".format(int(time.time()),
@@ -24,8 +27,8 @@ def create_argument_parser(additional_args=None):
                         help="PyTorch Lightning's folder version name.")
     parser.add_argument("--log_dirname", type=str, default='lightning_logs',
                         help="Name to assign to the log directory")
-    parser.add_argument("--model_type", type=str, default="roberta",
-                        choices=["roberta", "roberta_base"],
+    parser.add_argument("--model_type", type=str, default="modernbert",
+                        choices=["roberta", "roberta_base", "modernbert"],
                         help="Specifies which Transformer backbone to use")
     parser.add_argument("--text_key", type=str, default="syms",
                        help="Dictionary key name where the text is located in the data")
@@ -43,8 +46,8 @@ def create_argument_parser(additional_args=None):
                         help="Subsamples N authors from the dataset, used for debugging")
     parser.add_argument("--random_seed", type=int, default=777,
                         help="Seed for PyTorch and NumPy random operations")
-    parser.add_argument("--gpus", type=str, default="0", 
-                        help="Comma-separated list of GPU indices, e.g. '0,4' or '0,1,2'")
+    parser.add_argument("--gpus", type=lambda s: [int(x) for x in s.split(',')], default=[0],
+                    help="Comma-separated list of GPU indices, e.g. '0' or '0,1'")
     parser.add_argument("--period", type=int, default=5,
                         help="Periodicity to save checkpoints when not validating")
     parser.add_argument("--suffix", default="", type=str,
@@ -55,7 +58,7 @@ def create_argument_parser(additional_args=None):
                         help="Specifies learning rate")
     parser.add_argument("--learning_rate_scaling", action="store_true", default=False,
                         help="Toggles variance-based learning rate scaling")
-    parser.add_argument("--batch_size", type=int, default=72,
+    parser.add_argument("--batch_size", type=int, default=32,
                         help="Number of authors to include in each batch")
     parser.add_argument("--load_checkpoint", default=False, action = 'store_true', 
                         help="If True, will load the latest checkpoint")
@@ -63,7 +66,7 @@ def create_argument_parser(additional_args=None):
                         help="Precision of model weights")
     parser.add_argument("--num_workers", type=int, default=10,
                         help="Number of workers to prefetch data")
-    parser.add_argument("--num_epoch", type=int, default=20,
+    parser.add_argument("--num_epoch", type=int, default=10,
                         help="Number of epochs")
     parser.add_argument("--pin_memory", action='store_true', default=False,
                         help="Used pin memory for prefetching data")
@@ -77,7 +80,7 @@ def create_argument_parser(additional_args=None):
                         help="Approximate percentage of BPE to mask during training")
     
     ##### Model Hyperparameters #####
-    parser.add_argument("--episode_length", type=int, default=16,
+    parser.add_argument("--episode_length", type=int, default=32,
                         help="Number of actions to include in an episode")
     parser.add_argument("--token_max_length", type=int, default=32,
                         help="Number of tokens to take per example")

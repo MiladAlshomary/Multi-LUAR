@@ -67,5 +67,5 @@ class RedditDataset(RetrievalDataset):
             data = self.sample_random_window(data)
         data = [d.reshape(self.num_sample_per_author, -1, self.params.token_max_length) for d in data]
         self.mask_data_bpe(data)
-
+        
         return data, author
